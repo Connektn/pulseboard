@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: pulseboard
+
+server:
+  port: 8080
+
+# CORS configuration to allow frontend access
+management:
+  endpoints:
+    web:
+      cors:
+        allowed-origins: "http://localhost:5173"
+        allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+        allowed-headers: "*"
+
+# Custom CORS for application endpoints
+cors:
+  allowed-origins: "http://localhost:5173"
