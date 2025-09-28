@@ -10,22 +10,23 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 class CoreModelsTest {
-
-    private val objectMapper = ObjectMapper().apply {
-        registerModule(KotlinModule.Builder().build())
-        registerModule(JavaTimeModule())
-    }
+    private val objectMapper =
+        ObjectMapper().apply {
+            registerModule(KotlinModule.Builder().build())
+            registerModule(JavaTimeModule())
+        }
 
     @Test
     fun `Event should serialize and deserialize correctly`() {
-        val event = Event(
-            ts = Instant.parse("2023-12-01T10:30:00Z"),
-            profile = Profile.SASE,
-            type = "CONN_OPEN",
-            entityId = "user123",
-            value = 42L,
-            tags = mapOf("geo" to "US", "device" to "mobile")
-        )
+        val event =
+            Event(
+                ts = Instant.parse("2023-12-01T10:30:00Z"),
+                profile = Profile.SASE,
+                type = "CONN_OPEN",
+                entityId = "user123",
+                value = 42L,
+                tags = mapOf("geo" to "US", "device" to "mobile"),
+            )
 
         val json = objectMapper.writeValueAsString(event)
         assertNotNull(json)
@@ -36,12 +37,13 @@ class CoreModelsTest {
 
     @Test
     fun `Event should serialize and deserialize with minimal fields`() {
-        val event = Event(
-            ts = Instant.parse("2023-12-01T10:30:00Z"),
-            profile = Profile.IGAMING,
-            type = "BET_PLACED",
-            entityId = "user456"
-        )
+        val event =
+            Event(
+                ts = Instant.parse("2023-12-01T10:30:00Z"),
+                profile = Profile.IGAMING,
+                type = "BET_PLACED",
+                entityId = "user456",
+            )
 
         val json = objectMapper.writeValueAsString(event)
         assertNotNull(json)
@@ -54,18 +56,20 @@ class CoreModelsTest {
 
     @Test
     fun `Alert should serialize and deserialize correctly`() {
-        val alert = Alert(
-            id = "alert-123",
-            ts = Instant.parse("2023-12-01T10:35:00Z"),
-            rule = "R1_VELOCITY_SPIKE",
-            entityId = "user123",
-            severity = Severity.HIGH,
-            evidence = mapOf(
-                "rate_now" to 45.5,
-                "avg_5m" to 12.3,
-                "threshold" to 36.9
+        val alert =
+            Alert(
+                id = "alert-123",
+                ts = Instant.parse("2023-12-01T10:35:00Z"),
+                rule = "R1_VELOCITY_SPIKE",
+                entityId = "user123",
+                severity = Severity.HIGH,
+                evidence =
+                    mapOf(
+                        "rate_now" to 45.5,
+                        "avg_5m" to 12.3,
+                        "threshold" to 36.9,
+                    ),
             )
-        )
 
         val json = objectMapper.writeValueAsString(alert)
         assertNotNull(json)

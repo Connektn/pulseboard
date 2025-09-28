@@ -10,11 +10,11 @@ data class Alert(
     val rule: String,
     val entityId: String,
     val severity: Severity,
-    val evidence: Map<String, Any?>
+    val evidence: Map<String, Any?>,
 )
 
 enum class Severity {
     LOW,
     MEDIUM,
-    HIGH
+    HIGH,
 }

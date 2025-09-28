@@ -10,5 +10,5 @@ data class Event(
     val type: String,
     val entityId: String,
     val value: Long? = null,
-    val tags: Map<String, String> = emptyMap()
+    val tags: Map<String, String> = emptyMap(),
 )
