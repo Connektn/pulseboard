@@ -24,6 +24,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("io.micrometer:micrometer-core")
 
