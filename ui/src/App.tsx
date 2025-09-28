@@ -1,5 +1,6 @@
 import './App.css'
 import { Header } from './components/Header'
+import { AlertsTable } from './components/AlertsTable'
 import { useStats } from './lib/useStats'
 import { useSSE } from './lib/useSSE'
 
@@ -92,49 +93,8 @@ function App() {
           </div>
         </div>
 
-        {/* Placeholder for G3 Live Alerts Table */}
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '0.5rem',
-          padding: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          border: '1px solid #e2e8f0',
-          textAlign: 'center',
-          minHeight: '400px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '1rem'
-        }}>
-          <h3 style={{
-            margin: '0',
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            color: '#374151'
-          }}>
-            Live Alerts Table
-          </h3>
-          <p style={{
-            margin: '0',
-            color: '#6b7280',
-            fontSize: '0.875rem'
-          }}>
-            G3 component placeholder - Coming next!
-          </p>
-          <div style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#f3f4f6',
-            borderRadius: '0.375rem',
-            fontSize: '0.875rem',
-            color: '#374151'
-          }}>
-            {alerts.length > 0
-              ? `${alerts.length} alerts received and ready for display`
-              : 'Waiting for alerts... Start the simulator to see data'
-            }
-          </div>
-        </div>
+        {/* G3 Live Alerts Table */}
+        <AlertsTable alerts={alerts} />
 
         {/* System Status Footer */}
         <div style={{
