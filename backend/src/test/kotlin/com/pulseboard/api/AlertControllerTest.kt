@@ -30,6 +30,7 @@ class AlertControllerTest {
         every { mockEventBus.alerts } returns alertFlow
 
         alertController = AlertController(mockEventBus, objectMapper)
+        alertController.enableHeartbeat = false // Disable heartbeat for tests
         webTestClient = WebTestClient.bindToController(alertController).build()
     }
 

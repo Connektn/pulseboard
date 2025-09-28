@@ -24,6 +24,7 @@ class AlertController(
     @Autowired private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(AlertController::class.java)
+    var enableHeartbeat = true // Allow disabling heartbeat for tests
 
     @GetMapping("/sse/alerts", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     fun streamAlerts(): Flux<String> {
@@ -38,15 +39,6 @@ class AlertController(
     }
 
     private fun createAlertStream(): Flow<String> {
-        // Create heartbeat flow that emits every 10 seconds
-        val heartbeatFlow =
-            flow {
-                while (true) {
-                    kotlinx.coroutines.delay(10000) // 10 seconds
-                    emit(createHeartbeatMessage())
-                }
-            }
-
         // Create alert flow from EventBus
         val alertFlow =
             eventBus.alerts
@@ -56,24 +48,42 @@ class AlertController(
                     emit(createErrorMessage("Error processing alert: ${error.message}"))
                 }
 
-        // Merge heartbeat and alert flows
-        return merge(heartbeatFlow, alertFlow)
-            .onStart {
-                emit(createConnectionMessage())
-            }
-            .catch { error ->
-                logger.error("Error in alert stream", error)
-                emit(createErrorMessage("Stream error: ${error.message}"))
-            }
+        return if (enableHeartbeat) {
+            // Create heartbeat flow that emits every 10 seconds
+            val heartbeatFlow =
+                flow {
+                    while (true) {
+                        kotlinx.coroutines.delay(10000) // 10 seconds
+                        emit(createHeartbeatMessage())
+                    }
+                }
+
+            // Merge heartbeat and alert flows
+            merge(heartbeatFlow, alertFlow)
+                .onStart {
+                    emit(createConnectionMessage())
+                }
+                .catch { error ->
+                    logger.error("Error in alert stream", error)
+                    emit(createErrorMessage("Stream error: ${error.message}"))
+                }
+        } else {
+            // Test mode - no heartbeat
+            alertFlow
+                .onStart {
+                    emit(createConnectionMessage())
+                }
+                .catch { error ->
+                    logger.error("Error in alert stream", error)
+                    emit(createErrorMessage("Stream error: ${error.message}"))
+                }
+        }
     }
 
     private fun createAlertMessage(alert: Alert): String {
         return try {
-            val message = mapOf(
-                "type" to "alert",
-                "data" to alert
-            )
-            objectMapper.writeValueAsString(message)
+            val alertData = objectMapper.writeValueAsString(alert)
+            "event: alert\ndata: $alertData\n\n"
         } catch (e: Exception) {
             logger.error("Error serializing alert", e)
             createErrorMessage("Error serializing alert: ${e.message}")
@@ -87,10 +97,11 @@ class AlertController(
                 "timestamp" to Instant.now().toString(),
             )
         return try {
-            objectMapper.writeValueAsString(heartbeat)
+            val heartbeatData = objectMapper.writeValueAsString(heartbeat)
+            "event: heartbeat\ndata: $heartbeatData\n\n"
         } catch (e: Exception) {
             logger.error("Error creating heartbeat", e)
-            "{\"type\":\"heartbeat\",\"timestamp\":\"${Instant.now()}\"}"
+            "event: heartbeat\ndata: {\"type\":\"heartbeat\",\"timestamp\":\"${Instant.now()}\"}\n\n"
         }
     }
 
@@ -102,10 +113,11 @@ class AlertController(
                 "timestamp" to Instant.now().toString(),
             )
         return try {
-            objectMapper.writeValueAsString(connection)
+            val connectionData = objectMapper.writeValueAsString(connection)
+            "event: connection\ndata: $connectionData\n\n"
         } catch (e: Exception) {
             val timestamp = Instant.now()
-            "{\"type\":\"connection\",\"message\":\"Connected to alerts stream\",\"timestamp\":\"$timestamp\"}"
+            "event: connection\ndata: {\"type\":\"connection\",\"message\":\"Connected to alerts stream\",\"timestamp\":\"$timestamp\"}\n\n"
         }
     }
 
@@ -117,9 +129,10 @@ class AlertController(
                 "timestamp" to Instant.now().toString(),
             )
         return try {
-            objectMapper.writeValueAsString(error)
+            val errorData = objectMapper.writeValueAsString(error)
+            "event: error\ndata: $errorData\n\n"
         } catch (e: Exception) {
-            "{\"type\":\"error\",\"message\":\"$message\",\"timestamp\":\"${Instant.now()}\"}"
+            "event: error\ndata: {\"type\":\"error\",\"message\":\"$message\",\"timestamp\":\"${Instant.now()}\"}\n\n"
         }
     }
 }
