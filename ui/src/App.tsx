@@ -1,6 +1,7 @@
 import './App.css'
 import { Header } from './components/Header'
 import { AlertsTable } from './components/AlertsTable'
+import { KPIPanel } from './components/KPIPanel'
 import { useStats } from './lib/useStats'
 import { useSSE } from './lib/useSSE'
 
@@ -92,6 +93,9 @@ function App() {
             </span>
           </div>
         </div>
+
+        {/* G4 KPI Panel with Sparkline */}
+        <KPIPanel stats={stats} alerts={alerts} />
 
         {/* G3 Live Alerts Table */}
         <AlertsTable alerts={alerts} />
