@@ -105,7 +105,29 @@ export function KPIPanel({ stats, alerts }: KPIPanelProps) {
             display: false
           },
           tooltip: {
-            enabled: false
+            enabled: true,
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: 'white',
+            bodyColor: 'white',
+            borderColor: '#ef4444',
+            borderWidth: 1,
+            displayColors: false,
+            callbacks: {
+              title: function(context) {
+                const date = new Date(context[0].parsed.x);
+                return date.toLocaleTimeString('en-US', {
+                  hour12: false,
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                });
+              },
+              label: function(context) {
+                return `Alerts: ${context.parsed.y}`;
+              }
+            }
           }
         },
         scales: {
@@ -117,19 +139,47 @@ export function KPIPanel({ stats, alerts }: KPIPanelProps) {
               }
             },
             grid: {
-              display: false
+              display: true,
+              color: 'rgba(0, 0, 0, 0.05)'
             },
             ticks: {
-              display: false
+              display: true,
+              maxTicksLimit: 4,
+              color: '#6b7280',
+              font: {
+                size: 10
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time',
+              color: '#6b7280',
+              font: {
+                size: 10
+              }
             }
           },
           y: {
             beginAtZero: true,
             grid: {
-              display: false
+              display: true,
+              color: 'rgba(0, 0, 0, 0.05)'
             },
             ticks: {
-              display: false
+              display: true,
+              stepSize: 1,
+              color: '#6b7280',
+              font: {
+                size: 10
+              }
+            },
+            title: {
+              display: true,
+              text: 'Alerts',
+              color: '#6b7280',
+              font: {
+                size: 10
+              }
             }
           }
         },
