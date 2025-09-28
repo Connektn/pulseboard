@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class WindowStoreTest {
     private lateinit var windowStore: WindowStore
