@@ -4,6 +4,7 @@ import com.pulseboard.core.Event
 import com.pulseboard.core.Profile
 import com.pulseboard.core.Rules
 import com.pulseboard.core.WindowStore
+import com.pulseboard.transport.EventTransport
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ProcessorTest {
+    private lateinit var mockEventTransport: EventTransport
     private lateinit var mockEventBus: EventBus
     private lateinit var mockWindowStore: WindowStore
     private lateinit var mockRules: Rules
@@ -27,12 +29,13 @@ class ProcessorTest {
 
     @BeforeEach
     fun setup() {
+        mockEventTransport = mockk()
         mockEventBus = mockk()
         mockWindowStore = mockk()
         mockRules = mockk()
         eventFlow = MutableSharedFlow()
-        every { mockEventBus.events } returns eventFlow
-        processor = Processor(mockEventBus, mockWindowStore, mockRules)
+        every { mockEventTransport.subscribeToEvents() } returns eventFlow
+        processor = Processor(mockEventTransport, mockEventBus, mockWindowStore, mockRules)
     }
 
     @Test

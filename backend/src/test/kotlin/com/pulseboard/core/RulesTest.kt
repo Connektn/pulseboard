@@ -335,6 +335,156 @@ class RulesTest {
             assertEquals(Severity.HIGH, velocityAlert.severity) // 300 / 30 = 10.0 >= 10
         }
 
+    // Additional Edge Case Tests for I1
+    @Test
+    fun `R1 should handle zero average gracefully`() =
+        runTest {
+            val event = createTestEvent("LOGIN", "user123", 1L)
+
+            coEvery { mockWindowStore.ratePerMin("user123", "LOGIN") } returns 25.0 // Above 20/min
+            coEvery { mockWindowStore.avgOverLast("user123", "LOGIN", 5) } returns 0.0 // Zero average
+
+            val alerts = rules.evaluateAll(event)
+            val velocityAlert = alerts.find { it.rule == "R1_VELOCITY_SPIKE" }
+
+            assertNotNull(velocityAlert) // Should trigger when avg is zero and rate > 20
+            assertEquals(Severity.LOW, velocityAlert.severity)
+            assertEquals(25.0, velocityAlert.evidence["rate_now"])
+            assertEquals(0.0, velocityAlert.evidence["avg_5m"])
+        }
+
+    @Test
+    fun `R1 should calculate MEDIUM severity correctly`() =
+        runTest {
+            val event = createTestEvent("LOGIN", "user123", 1L)
+
+            coEvery { mockWindowStore.ratePerMin("user123", "LOGIN") } returns 150.0 // 5x threshold
+            coEvery { mockWindowStore.avgOverLast("user123", "LOGIN", 5) } returns 10.0 // threshold = 30
+
+            val alerts = rules.evaluateAll(event)
+            val velocityAlert = alerts.find { it.rule == "R1_VELOCITY_SPIKE" }
+
+            assertNotNull(velocityAlert)
+            assertEquals(Severity.MEDIUM, velocityAlert.severity) // 150 / 30 = 5.0 (between 3 and 10)
+        }
+
+    @Test
+    fun `R2 should handle very large EWMA values`() =
+        runTest {
+            val event = createTestEvent("BET_PLACED", "user456", 1000000L) // Very large value
+
+            coEvery { mockWindowStore.ratePerMin(any(), any()) } returns 5.0
+            coEvery { mockWindowStore.avgOverLast(any(), any(), any()) } returns 10.0
+            coEvery { mockWindowStore.getEwma("user456", "BET_PLACED") } returns 100000.0 // Large EWMA
+            coEvery { mockWindowStore.updateEwma("user456", "BET_PLACED", 1000000.0, 0.1) } returns 190000.0
+            coEvery { mockWindowStore.countIn("user456", "BET_PLACED", Duration.ofSeconds(60)) } returns 10L
+            coEvery { mockWindowStore.sumIn(any(), any(), any()) } returns 0L
+
+            val alerts = rules.evaluateAll(event)
+            val valueAlert = alerts.find { it.rule == "R2_VALUE_SPIKE" }
+
+            assertNotNull(valueAlert)
+            assertEquals(1000000L, valueAlert.evidence["value_now"])
+            assertEquals(190000.0, valueAlert.evidence["ewma"])
+            assertEquals(760000.0, valueAlert.evidence["threshold"]) // 4 × 190000
+        }
+
+    @Test
+    fun `R2 should handle boundary condition at exactly threshold`() =
+        runTest {
+            val event = createTestEvent("BET_PLACED", "user456", 400L) // Exactly at threshold
+
+            coEvery { mockWindowStore.ratePerMin(any(), any()) } returns 5.0
+            coEvery { mockWindowStore.avgOverLast(any(), any(), any()) } returns 10.0
+            coEvery { mockWindowStore.getEwma("user456", "BET_PLACED") } returns 100.0
+            coEvery { mockWindowStore.updateEwma("user456", "BET_PLACED", 400.0, 0.1) } returns 130.0
+            coEvery { mockWindowStore.countIn("user456", "BET_PLACED", Duration.ofSeconds(60)) } returns 10L
+            coEvery { mockWindowStore.sumIn(any(), any(), any()) } returns 0L
+
+            val alerts = rules.evaluateAll(event)
+            val valueAlert = alerts.find { it.rule == "R2_VALUE_SPIKE" }
+
+            // 400 < 520 (4 × 130), so should NOT trigger
+            assertNull(valueAlert)
+        }
+
+    @Test
+    fun `R4 should handle boundary condition at P95 threshold`() =
+        runTest {
+            val event = createTestEvent("CONN_BYTES", "user789", 1000L, profile = Profile.SASE)
+
+            coEvery { mockWindowStore.ratePerMin(any(), any()) } returns 5.0
+            coEvery { mockWindowStore.avgOverLast(any(), any(), any()) } returns 100.0 // P95 = 10 × 100 = 1000
+            coEvery { mockWindowStore.getEwma(any(), any()) } returns 0.0
+            coEvery { mockWindowStore.updateEwma(any(), any(), any(), any()) } returns 1.0
+            coEvery { mockWindowStore.countIn(any(), any(), any()) } returns 0L
+            coEvery { mockWindowStore.sumIn("user789", "CONN_BYTES", Duration.ofSeconds(30)) } returns 1000L // Exactly at threshold
+
+            val alerts = rules.evaluateAll(event)
+            val exfilAlert = alerts.find { it.rule == "R4_EXFIL" }
+
+            // Should NOT trigger when exactly at threshold (need to be > threshold)
+            assertNull(exfilAlert)
+        }
+
+    @Test
+    fun `R4 should handle events with different type for SASE profile`() =
+        runTest {
+            val event = createTestEvent("LOGIN", "user789", 5000L, profile = Profile.SASE)
+
+            coEvery { mockWindowStore.ratePerMin(any(), any()) } returns 5.0
+            coEvery { mockWindowStore.avgOverLast(any(), any(), any()) } returns 100.0
+            coEvery { mockWindowStore.getEwma(any(), any()) } returns 0.0
+            coEvery { mockWindowStore.updateEwma(any(), any(), any(), any()) } returns 1.0
+            coEvery { mockWindowStore.countIn(any(), any(), any()) } returns 0L
+            coEvery { mockWindowStore.sumIn("user789", "LOGIN", Duration.ofSeconds(30)) } returns 15000L
+
+            val alerts = rules.evaluateAll(event)
+            val exfilAlert = alerts.find { it.rule == "R4_EXFIL" }
+
+            // R4 should not trigger for non-CONN_BYTES events, even in SASE profile
+            assertNull(exfilAlert)
+        }
+
+    @Test
+    fun `evaluateAll should handle exceptions in individual rules gracefully`() =
+        runTest {
+            val event = createTestEvent("LOGIN", "user123", 1L)
+
+            // Mock one rule to throw exception, others to work normally
+            coEvery { mockWindowStore.ratePerMin("user123", "LOGIN") } throws RuntimeException("Test exception")
+            coEvery { mockWindowStore.avgOverLast(any(), any(), any()) } returns 10.0
+            coEvery { mockWindowStore.getEwma(any(), any()) } returns 100.0
+            coEvery { mockWindowStore.updateEwma(any(), any(), any(), any()) } returns 100.0
+            coEvery { mockWindowStore.countIn(any(), any(), any()) } returns 1L
+            coEvery { mockWindowStore.sumIn(any(), any(), any()) } returns 100L
+
+            val alerts = rules.evaluateAll(event)
+
+            // Should return empty list when exceptions occur, not crash
+            assertTrue(alerts.isEmpty())
+        }
+
+    @Test
+    fun `rules should handle null tags gracefully`() =
+        runTest {
+            val event = createTestEvent("LOGIN", "user999", 1L, tags = emptyMap())
+
+            coEvery { mockWindowStore.ratePerMin(any(), any()) } returns 5.0
+            coEvery { mockWindowStore.avgOverLast(any(), any(), any()) } returns 10.0
+            coEvery { mockWindowStore.getEwma(any(), any()) } returns 0.0
+            coEvery { mockWindowStore.updateEwma(any(), any(), any(), any()) } returns 1.0
+            coEvery { mockWindowStore.countIn(any(), any(), any()) } returns 1L
+            coEvery { mockWindowStore.sumIn(any(), any(), any()) } returns 100L
+
+            val alerts = rules.evaluateAll(event)
+
+            // Should handle empty tags without crashing
+            // R3 specifically should not trigger without geo/device tags
+            val geoAlert = alerts.find { it.rule == "R3_GEO_DEVICE_MISMATCH" }
+            assertNull(geoAlert)
+        }
+
     private fun createTestEvent(
         type: String,
         entityId: String,

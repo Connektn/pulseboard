@@ -241,4 +241,180 @@ class WindowStoreTest {
         window.pruneOldData(now.minusSeconds(20))
         assertEquals(1, window.size()) // Only the 10-second-old event should remain
     }
+
+    // Additional WindowStore Metrics Tests for I1
+    @Test
+    fun `should handle rate calculation with no data`() {
+        val entityId = "empty"
+        val type = "EMPTY"
+
+        val rate = windowStore.ratePerMin(entityId, type)
+        assertEquals(0.0, rate)
+    }
+
+    @Test
+    fun `should handle rate calculation with single data point`() {
+        val entityId = "single"
+        val type = "SINGLE"
+        val now = Instant.now()
+
+        windowStore.append(entityId, type, now.minusSeconds(30), 1L)
+
+        val rate = windowStore.ratePerMin(entityId, type)
+        assertEquals(1.0, rate) // 1 event in the last minute
+    }
+
+    @Test
+    fun `should calculate accurate rate per minute with fractional minutes`() {
+        val entityId = "fractional"
+        val type = "FRAC"
+        val now = Instant.now()
+
+        // Add 6 events in 30 seconds (should be 12/min rate)
+        repeat(6) { i ->
+            windowStore.append(entityId, type, now.minusSeconds((i * 5).toLong()), 1L)
+        }
+
+        val rate = windowStore.ratePerMin(entityId, type)
+        assertEquals(6.0, rate) // 6 events within the minute window
+    }
+
+    @Test
+    fun `should handle EWMA with alpha of 1_0`() {
+        val entityId = "alpha1"
+        val type = "ALPHA"
+
+        // Alpha = 1.0 should make EWMA equal to the current value
+        val ewma1 = windowStore.updateEwma(entityId, type, 100.0, 1.0)
+        assertEquals(100.0, ewma1)
+
+        val ewma2 = windowStore.updateEwma(entityId, type, 200.0, 1.0)
+        assertEquals(200.0, ewma2) // Should completely replace previous value
+
+        assertEquals(200.0, windowStore.getEwma(entityId, type))
+    }
+
+    @Test
+    fun `should handle EWMA with alpha of 0_0`() {
+        val entityId = "alpha0"
+        val type = "ALPHA"
+
+        val ewma1 = windowStore.updateEwma(entityId, type, 100.0, 0.0)
+        assertEquals(100.0, ewma1) // First value always returned
+
+        val ewma2 = windowStore.updateEwma(entityId, type, 200.0, 0.0)
+        assertEquals(100.0, ewma2) // Should not change with alpha = 0.0
+
+        assertEquals(100.0, windowStore.getEwma(entityId, type))
+    }
+
+    @Test
+    fun `should handle very large sums without overflow`() {
+        val entityId = "largeSum"
+        val type = "LARGE"
+        val now = Instant.now()
+
+        // Add large values
+        windowStore.append(entityId, type, now.minusSeconds(50), Long.MAX_VALUE / 4)
+        windowStore.append(entityId, type, now.minusSeconds(30), Long.MAX_VALUE / 4)
+        windowStore.append(entityId, type, now.minusSeconds(10), Long.MAX_VALUE / 4)
+
+        val sum = windowStore.sumIn(entityId, type, Duration.ofMinutes(1))
+        assertEquals((Long.MAX_VALUE / 4) * 3, sum)
+    }
+
+    @Test
+    fun `should handle negative values correctly`() {
+        val entityId = "negative"
+        val type = "NEG"
+        val now = Instant.now()
+
+        windowStore.append(entityId, type, now.minusSeconds(50), -100L)
+        windowStore.append(entityId, type, now.minusSeconds(30), -50L)
+        windowStore.append(entityId, type, now.minusSeconds(10), 200L)
+
+        val sum = windowStore.sumIn(entityId, type, Duration.ofMinutes(1))
+        assertEquals(50L, sum) // -100 + (-50) + 200 = 50
+
+        val count = windowStore.countIn(entityId, type, Duration.ofMinutes(1))
+        assertEquals(3L, count)
+
+        val avg = windowStore.avgOverLast(entityId, type, 1)
+        assertEquals(16.666666666666668, avg, 0.001) // 50 / 3
+    }
+
+    @Test
+    fun `should handle zero duration queries gracefully`() {
+        val entityId = "zeroDuration"
+        val type = "ZERO"
+        val now = Instant.now()
+
+        windowStore.append(entityId, type, now, 100L)
+
+        val count = windowStore.countIn(entityId, type, Duration.ZERO)
+        assertEquals(0L, count) // Nothing should be within zero duration
+
+        val sum = windowStore.sumIn(entityId, type, Duration.ZERO)
+        assertEquals(0L, sum)
+    }
+
+    @Test
+    fun `should handle very short durations accurately`() {
+        val entityId = "shortDuration"
+        val type = "SHORT"
+        val now = Instant.now()
+
+        // Add events with millisecond precision
+        windowStore.append(entityId, type, now.minusMillis(1), 10L)
+        windowStore.append(entityId, type, now.minusMillis(5), 20L)
+        windowStore.append(entityId, type, now.minusMillis(15), 30L)
+
+        // Query for events within last 10ms
+        val count = windowStore.countIn(entityId, type, Duration.ofMillis(10))
+        assertEquals(2L, count) // Should include events at 1ms and 5ms ago
+
+        val sum = windowStore.sumIn(entityId, type, Duration.ofMillis(10))
+        assertEquals(30L, sum) // 10 + 20
+    }
+
+    @Test
+    fun `should maintain data integrity after multiple prune operations`() {
+        val entityId = "pruneTest"
+        val type = "PRUNE"
+        val now = Instant.now()
+
+        // Add data spread over a longer time period
+        repeat(20) { i ->
+            windowStore.append(entityId, type, now.minus(Duration.ofMinutes(i.toLong())), (i + 1).toLong())
+        }
+
+        // Initial count - all data is beyond default window, so should be pruned on first append
+        val initialCount = windowStore.countIn(entityId, type, Duration.ofMinutes(30))
+
+        // Add recent data to trigger pruning
+        windowStore.append(entityId, type, now, 999L)
+
+        val finalCount = windowStore.countIn(entityId, type, Duration.ofMinutes(6))
+
+        // Should only have the recent event (older events should be pruned)
+        assertEquals(1L, finalCount)
+
+        val finalSum = windowStore.sumIn(entityId, type, Duration.ofMinutes(6))
+        assertEquals(999L, finalSum)
+    }
+
+    @Test
+    fun `EWMA should handle precision edge cases`() {
+        val entityId = "precision"
+        val type = "PREC"
+
+        // Test with very small values and precise alpha
+        val alpha = 0.001
+        val ewma1 = windowStore.updateEwma(entityId, type, 0.0001, alpha)
+        assertEquals(0.0001, ewma1, 0.00000001)
+
+        val ewma2 = windowStore.updateEwma(entityId, type, 0.0002, alpha)
+        val expected = alpha * 0.0002 + (1 - alpha) * 0.0001
+        assertEquals(expected, ewma2, 0.00000001)
+    }
 }
