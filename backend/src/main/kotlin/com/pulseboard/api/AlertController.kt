@@ -82,8 +82,12 @@ class AlertController(
 
     private fun createAlertMessage(alert: Alert): String {
         return try {
-            val alertData = objectMapper.writeValueAsString(alert)
-            "event: alert\ndata: $alertData\n\n"
+            val message =
+                mapOf(
+                    "type" to "alert",
+                    "data" to alert,
+                )
+            objectMapper.writeValueAsString(message)
         } catch (e: Exception) {
             logger.error("Error serializing alert", e)
             createErrorMessage("Error serializing alert: ${e.message}")
@@ -97,11 +101,10 @@ class AlertController(
                 "timestamp" to Instant.now().toString(),
             )
         return try {
-            val heartbeatData = objectMapper.writeValueAsString(heartbeat)
-            "event: heartbeat\ndata: $heartbeatData\n\n"
+            objectMapper.writeValueAsString(heartbeat)
         } catch (e: Exception) {
             logger.error("Error creating heartbeat", e)
-            "event: heartbeat\ndata: {\"type\":\"heartbeat\",\"timestamp\":\"${Instant.now()}\"}\n\n"
+            "{\"type\":\"heartbeat\",\"timestamp\":\"${Instant.now()}\"}"
         }
     }
 
@@ -113,11 +116,10 @@ class AlertController(
                 "timestamp" to Instant.now().toString(),
             )
         return try {
-            val connectionData = objectMapper.writeValueAsString(connection)
-            "event: connection\ndata: $connectionData\n\n"
+            objectMapper.writeValueAsString(connection)
         } catch (e: Exception) {
             val timestamp = Instant.now()
-            "event: connection\ndata: {\"type\":\"connection\",\"message\":\"Connected to alerts stream\",\"timestamp\":\"$timestamp\"}\n\n"
+            "{\"type\":\"connection\",\"message\":\"Connected to alerts stream\",\"timestamp\":\"$timestamp\"}"
         }
     }
 
@@ -129,10 +131,9 @@ class AlertController(
                 "timestamp" to Instant.now().toString(),
             )
         return try {
-            val errorData = objectMapper.writeValueAsString(error)
-            "event: error\ndata: $errorData\n\n"
+            objectMapper.writeValueAsString(error)
         } catch (e: Exception) {
-            "event: error\ndata: {\"type\":\"error\",\"message\":\"$message\",\"timestamp\":\"${Instant.now()}\"}\n\n"
+            "e{\"type\":\"error\",\"message\":\"$message\",\"timestamp\":\"${Instant.now()}\"}"
         }
     }
 }

@@ -50,7 +50,7 @@ class StatsService {
             StatsOverview(
                 eventsPerMin = eventTimestamps.size,
                 alertsPerMin = alertTimestamps.size,
-                uptimeSec = java.time.Duration.between(startupTime, now).seconds
+                uptimeSec = java.time.Duration.between(startupTime, now).seconds,
             )
         }
     }
@@ -58,6 +58,6 @@ class StatsService {
     data class StatsOverview(
         val eventsPerMin: Int,
         val alertsPerMin: Int,
-        val uptimeSec: Long
+        val uptimeSec: Long,
     )
 }

@@ -2,7 +2,6 @@ package com.pulseboard.api
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.pulseboard.core.Alert
-import com.pulseboard.core.Severity
 import com.pulseboard.ingest.EventBus
 import io.mockk.every
 import io.mockk.mockk
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.test.web.reactive.server.WebTestClient
 import reactor.test.StepVerifier
 import java.time.Duration
-import java.time.Instant
 
 class AlertControllerTest {
     private lateinit var mockEventBus: EventBus
@@ -49,7 +47,7 @@ class AlertControllerTest {
 
         StepVerifier.create(flux)
             .expectNextMatches { message ->
-                message.contains("event: connection") && message.contains("Connected to alerts stream")
+                message.contains("\"type\":\"connection\"") && message.contains("Connected to alerts stream")
             }
             .thenCancel()
             .verify(Duration.ofSeconds(1))
@@ -69,7 +67,7 @@ class AlertControllerTest {
         // The connection message should still work since it's hardcoded
         StepVerifier.create(flux)
             .expectNextMatches { message ->
-                message.contains("event: connection") || message.contains("event: error")
+                message.contains("\"type\":\"connection\"")
             }
             .thenCancel()
             .verify(Duration.ofSeconds(1))

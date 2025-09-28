@@ -15,7 +15,7 @@ class StatsController(
         return mapOf(
             "eventsPerMin" to stats.eventsPerMin,
             "alertsPerMin" to stats.alertsPerMin,
-            "uptimeSec" to stats.uptimeSec
+            "uptimeSec" to stats.uptimeSec,
         )
     }
 }

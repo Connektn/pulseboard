@@ -22,9 +22,8 @@ import java.util.concurrent.ConcurrentLinkedQueue
 @ConditionalOnProperty(value = ["transport.mode"], havingValue = "kafka")
 class KafkaEventTransport(
     private val kafkaTemplate: KafkaTemplate<String, Event>,
-    @Value("\${spring.kafka.topics.events}") private val eventsTopic: String
+    @Value("\${spring.kafka.topics.events}") private val eventsTopic: String,
 ) : EventTransport {
-
     private val logger = LoggerFactory.getLogger(KafkaEventTransport::class.java)
     private val eventQueue = ConcurrentLinkedQueue<Event>()
 
@@ -35,10 +34,11 @@ class KafkaEventTransport(
                     if (exception != null) {
                         logger.error("Failed to send event to Kafka", exception)
                     } else {
-                        logger.debug("Event sent to Kafka: topic={}, partition={}, offset={}",
+                        logger.debug(
+                            "Event sent to Kafka: topic={}, partition={}, offset={}",
                             result.recordMetadata.topic(),
                             result.recordMetadata.partition(),
-                            result.recordMetadata.offset()
+                            result.recordMetadata.offset(),
                         )
                     }
                 }
@@ -48,30 +48,32 @@ class KafkaEventTransport(
         }
     }
 
-    override fun subscribeToEvents(): Flow<Event> = callbackFlow {
-        // Create a coroutine to poll from the queue and emit events
-        val job = launch {
-            while (true) {
-                val event = eventQueue.poll()
-                if (event != null) {
-                    send(event)
-                } else {
-                    kotlinx.coroutines.delay(10) // Small delay to prevent busy-waiting
+    override fun subscribeToEvents(): Flow<Event> =
+        callbackFlow {
+            // Create a coroutine to poll from the queue and emit events
+            val job =
+                launch {
+                    while (true) {
+                        val event = eventQueue.poll()
+                        if (event != null) {
+                            send(event)
+                        } else {
+                            kotlinx.coroutines.delay(10) // Small delay to prevent busy-waiting
+                        }
+                    }
                 }
-            }
-        }
 
-        // Clean up when the flow is cancelled
-        invokeOnClose { job.cancel() }
-    }
+            // Clean up when the flow is cancelled
+            invokeOnClose { job.cancel() }
+        }
 
     @KafkaListener(
         topics = ["\${spring.kafka.topics.events}"],
-        groupId = "\${spring.kafka.consumer.group-id}"
+        groupId = "\${spring.kafka.consumer.group-id}",
     )
     fun consumeEvent(
         record: ConsumerRecord<String, Event>,
-        acknowledgment: Acknowledgment
+        acknowledgment: Acknowledgment,
     ) {
         try {
             val event = record.value()
