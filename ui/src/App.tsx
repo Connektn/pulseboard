@@ -1,4 +1,5 @@
 import './App.css'
+import { TestG1 } from './components/TestG1'
 
 function App() {
   return (
@@ -13,6 +14,8 @@ function App() {
           <h2>Pulseboard UI ready</h2>
           <p>Backend configured at: http://localhost:8080</p>
         </div>
+
+        <TestG1 />
       </main>
 
       <footer className="app-footer">
