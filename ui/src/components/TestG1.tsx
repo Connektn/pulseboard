@@ -6,6 +6,7 @@ export function TestG1() {
   const [apiStatus, setApiStatus] = useState<string>('Testing...');
   const [profile, setProfile] = useState<string>('Unknown');
   const [stats, setStats] = useState<{eventsPerMin: number; alertsPerMin: number; uptimeSec: number} | null>(null);
+  const [lastStatsUpdate, setLastStatsUpdate] = useState<Date | null>(null);
 
   // Test SSE hook
   const { alerts, connected, error, lastMessage } = useSSE({ maxAlerts: 5 });
@@ -36,6 +37,32 @@ export function TestG1() {
     };
 
     testApi();
+  }, []);
+
+  // Continuously poll stats to keep them updated
+  useEffect(() => {
+    const updateStats = async () => {
+      try {
+        const statsResponse = await api.stats.overview();
+        setStats(statsResponse);
+      } catch (error) {
+        console.error('Stats update error:', error);
+      }
+    };
+
+    // Update stats every 2 seconds and track last update time
+    const updateWithTimestamp = async () => {
+      await updateStats();
+      setLastStatsUpdate(new Date());
+    };
+
+    // Initial update
+    updateWithTimestamp();
+
+    // Update stats every 2 seconds
+    const interval = setInterval(updateWithTimestamp, 2000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleStartSimulator = async () => {
@@ -70,6 +97,7 @@ export function TestG1() {
         <p><strong>Status:</strong> {apiStatus}</p>
         <p><strong>Profile:</strong> {profile}</p>
         <p><strong>Stats:</strong> {stats ? `Events: ${stats.eventsPerMin}, Alerts: ${stats.alertsPerMin}, Uptime: ${stats.uptimeSec}s` : 'Loading...'}</p>
+        <p><strong>Last Updated:</strong> {lastStatsUpdate ? lastStatsUpdate.toLocaleTimeString() : 'Never'} <em>(polling every 2s)</em></p>
 
         <div style={{ marginTop: '10px' }}>
           <button onClick={handleStartSimulator} style={{ marginRight: '10px' }}>
