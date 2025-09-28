@@ -17,3 +17,27 @@ management:
 # Custom CORS for application endpoints
 cors:
   allowed-origins: "http://localhost:5173"
+
+# Transport configuration
+transport:
+  mode: memory  # memory | kafka
+
+# Kafka configuration (used when transport.mode=kafka)
+spring:
+  kafka:
+    bootstrap-servers: localhost:19092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: pulseboard-consumer-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.pulseboard.core"
+        spring.json.add.type.headers: false
+    topics:
+      events: "events"
+      alerts: "alerts"
