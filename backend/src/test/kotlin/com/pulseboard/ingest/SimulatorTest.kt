@@ -1,6 +1,7 @@
 package com.pulseboard.ingest
 
 import com.pulseboard.core.Profile
+import com.pulseboard.transport.EventTransport
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -15,14 +16,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SimulatorTest {
-    private lateinit var mockEventBus: EventBus
+    private lateinit var mockEventTransport: EventTransport
     private lateinit var simulator: Simulator
 
     @BeforeEach
     fun setup() {
-        mockEventBus = mockk()
-        coEvery { mockEventBus.publishEvent(any()) } returns Unit
-        simulator = Simulator(mockEventBus)
+        mockEventTransport = mockk()
+        coEvery { mockEventTransport.publishEvent(any()) } returns Unit
+        simulator = Simulator(mockEventTransport)
     }
 
     @Test
@@ -75,7 +76,7 @@ class SimulatorTest {
             simulator.stop()
 
             // Verify that events were published
-            coVerify(atLeast = 1) { mockEventBus.publishEvent(any()) }
+            coVerify(atLeast = 1) { mockEventTransport.publishEvent(any()) }
         }
 
     @Test
@@ -89,7 +90,7 @@ class SimulatorTest {
             simulator.stop()
 
             // Verify that events were published
-            coVerify(atLeast = 1) { mockEventBus.publishEvent(any()) }
+            coVerify(atLeast = 1) { mockEventTransport.publishEvent(any()) }
         }
 
     @Test
