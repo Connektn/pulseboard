@@ -14,7 +14,7 @@ import kotlin.random.Random
 
 @Component
 class Simulator(
-    @Autowired private val eventBus: EventBus,
+    @Autowired private val eventTransport: com.pulseboard.transport.EventTransport,
 ) {
     private var simulatorJob: Job? = null
     private var currentProfile: Profile = Profile.SASE
@@ -124,7 +124,7 @@ class Simulator(
                 else -> return
             }
 
-        eventBus.publishEvent(event)
+        eventTransport.publishEvent(event)
     }
 
     private suspend fun generateIGamingEvents() {
@@ -182,7 +182,7 @@ class Simulator(
                 else -> return
             }
 
-        eventBus.publishEvent(event)
+        eventTransport.publishEvent(event)
     }
 
     private fun chooseSaseEventType(): String {

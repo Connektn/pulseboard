@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class Processor(
+    private val eventTransport: com.pulseboard.transport.EventTransport,
     private val eventBus: EventBus,
     private val windowStore: WindowStore,
     private val rules: Rules,
@@ -42,7 +43,7 @@ class Processor(
             scope.launch {
                 logger.info("Event processor pipeline started")
                 try {
-                    eventBus.events
+                    eventTransport.subscribeToEvents()
                         .onEach { event ->
                             processEvent(event)
                         }
