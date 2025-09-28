@@ -19,6 +19,7 @@ This will start:
 - **Java 21+** (for backend)
 - **Node.js 18+** (for frontend)
 - **npm** (for frontend dependencies)
+- **Docker & Docker Compose** (for Kafka/Redpanda broker)
 
 ## Manual Setup
 
@@ -65,6 +66,62 @@ cd backend && ./gradlew ktlintCheck
 
 # Frontend
 cd ui && npm run lint
+```
+
+## Kafka Development
+
+For development with Kafka/Redpanda message broker:
+
+### Start Redpanda Broker
+
+```bash
+# Start Redpanda single-node cluster with console
+docker compose up -d
+
+# Check broker status
+docker compose ps
+
+# View logs
+docker compose logs -f redpanda
+```
+
+### Redpanda Console
+
+Once running, access the Redpanda Console at:
+- **Console UI**: `http://localhost:8080`
+
+The console provides:
+- Topic management and inspection
+- Message browsing and publishing
+- Consumer group monitoring
+- Schema registry integration
+- Cluster health and metrics
+
+### Stop Broker
+
+```bash
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (clean slate)
+docker compose down -v
+```
+
+### Useful Commands
+
+```bash
+# Create topics using rpk CLI in container
+docker exec -it redpanda rpk topic create events --partitions 3
+docker exec -it redpanda rpk topic create alerts --partitions 3
+
+# List topics
+docker exec -it redpanda rpk topic list
+
+# Produce test messages
+docker exec -it redpanda rpk topic produce events
+
+# Consume messages
+docker exec -it redpanda rpk topic consume events --print-headers
 ```
 
 ## Architecture
