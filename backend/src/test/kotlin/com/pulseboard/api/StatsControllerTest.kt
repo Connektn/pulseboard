@@ -22,28 +22,31 @@ class StatsControllerTest {
     }
 
     @Test
-    fun `should return stats overview with correct structure`() = runTest {
-        val mockStats = StatsService.StatsOverview(
-            eventsPerMin = 42,
-            alertsPerMin = 5,
-            uptimeSec = 3600L
-        )
-        coEvery { mockStatsService.getStats() } returns mockStats
+    fun `should return stats overview with correct structure`() =
+        runTest {
+            val mockStats =
+                StatsService.StatsOverview(
+                    eventsPerMin = 42,
+                    alertsPerMin = 5,
+                    uptimeSec = 3600L,
+                )
+            coEvery { mockStatsService.getStats() } returns mockStats
 
-        val result = statsController.getOverview()
+            val result = statsController.getOverview()
 
-        assertEquals(42, result["eventsPerMin"])
-        assertEquals(5, result["alertsPerMin"])
-        assertEquals(3600L, result["uptimeSec"])
-    }
+            assertEquals(42, result["eventsPerMin"])
+            assertEquals(5, result["alertsPerMin"])
+            assertEquals(3600L, result["uptimeSec"])
+        }
 
     @Test
     fun `should return JSON response via HTTP`() {
-        val mockStats = StatsService.StatsOverview(
-            eventsPerMin = 10,
-            alertsPerMin = 2,
-            uptimeSec = 1800L
-        )
+        val mockStats =
+            StatsService.StatsOverview(
+                eventsPerMin = 10,
+                alertsPerMin = 2,
+                uptimeSec = 1800L,
+            )
         coEvery { mockStatsService.getStats() } returns mockStats
 
         webTestClient.get()
@@ -57,34 +60,39 @@ class StatsControllerTest {
     }
 
     @Test
-    fun `should handle zero stats correctly`() = runTest {
-        val mockStats = StatsService.StatsOverview(
-            eventsPerMin = 0,
-            alertsPerMin = 0,
-            uptimeSec = 0L
-        )
-        coEvery { mockStatsService.getStats() } returns mockStats
+    fun `should handle zero stats correctly`() =
+        runTest {
+            val mockStats =
+                StatsService.StatsOverview(
+                    eventsPerMin = 0,
+                    alertsPerMin = 0,
+                    uptimeSec = 0L,
+                )
+            coEvery { mockStatsService.getStats() } returns mockStats
 
-        val result = statsController.getOverview()
+            val result = statsController.getOverview()
 
-        assertEquals(0, result["eventsPerMin"])
-        assertEquals(0, result["alertsPerMin"])
-        assertEquals(0L, result["uptimeSec"])
-    }
+            assertEquals(0, result["eventsPerMin"])
+            assertEquals(0, result["alertsPerMin"])
+            assertEquals(0L, result["uptimeSec"])
+        }
 
     @Test
-    fun `should handle large numbers correctly`() = runTest {
-        val mockStats = StatsService.StatsOverview(
-            eventsPerMin = 999999,
-            alertsPerMin = 50000,
-            uptimeSec = 86400L // 24 hours
-        )
-        coEvery { mockStatsService.getStats() } returns mockStats
+    fun `should handle large numbers correctly`() =
+        runTest {
+            val mockStats =
+                StatsService.StatsOverview(
+                    eventsPerMin = 999999,
+                    alertsPerMin = 50000,
+                    // 24 hours
+                    uptimeSec = 86400L,
+                )
+            coEvery { mockStatsService.getStats() } returns mockStats
 
-        val result = statsController.getOverview()
+            val result = statsController.getOverview()
 
-        assertEquals(999999, result["eventsPerMin"])
-        assertEquals(50000, result["alertsPerMin"])
-        assertEquals(86400L, result["uptimeSec"])
-    }
+            assertEquals(999999, result["eventsPerMin"])
+            assertEquals(50000, result["alertsPerMin"])
+            assertEquals(86400L, result["uptimeSec"])
+        }
 }

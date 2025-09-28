@@ -26,5 +26,5 @@ interface EventTransport {
 
 enum class TransportType {
     MEMORY,
-    KAFKA
+    KAFKA,
 }

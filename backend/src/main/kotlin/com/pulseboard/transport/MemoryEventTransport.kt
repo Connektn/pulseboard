@@ -13,9 +13,8 @@ import org.springframework.stereotype.Component
 @Component
 @ConditionalOnProperty(value = ["transport.mode"], havingValue = "memory", matchIfMissing = true)
 class MemoryEventTransport(
-    private val eventBus: EventBus
+    private val eventBus: EventBus,
 ) : EventTransport {
-
     override suspend fun publishEvent(event: Event) {
         eventBus.publishEvent(event)
     }
