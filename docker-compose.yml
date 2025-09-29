@@ -54,7 +54,9 @@ services:
         connect:
           enabled: false
     ports:
-      - "8080:8080"
+      - target: 8080 # container port
+        published: 8088 # host port
+        protocol: tcp
     networks:
       - redpanda_network
     depends_on:

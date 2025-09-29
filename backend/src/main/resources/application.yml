@@ -10,11 +10,20 @@ spring:
         spring.json.add.type.headers: false
     consumer:
       group-id: pulseboard-consumer-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # Wrap to let DefaultErrorHandler handle deserialization failures
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
-        spring.json.trusted.packages: "com.pulseboard.core"
+        # Delegate to actual deserializers
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # Tell JsonDeserializer what class to target when there are no type headers            
+        spring.json.value.default.type: "com.pulseboard.core.Event"
         spring.json.add.type.headers: false
+        spring.json.trusted.packages: "com.pulseboard.core"
+      enable-auto-commit: false
+    listener:
+      ack-mode: manual
     topics:
       events: "events"
       alerts: "alerts"
@@ -37,4 +46,4 @@ cors:
 
 # Transport configuration
 transport:
-  mode: memory  # memory | kafka
+  mode: kafka  # memory | kafka

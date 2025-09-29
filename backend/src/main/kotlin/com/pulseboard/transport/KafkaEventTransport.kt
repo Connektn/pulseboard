@@ -1,8 +1,11 @@
 package com.pulseboard.transport
 
 import com.pulseboard.core.Event
+import com.pulseboard.ingest.EventBus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
@@ -12,7 +15,6 @@ import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.support.Acknowledgment
 import org.springframework.stereotype.Component
-import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Kafka-based event transport implementation.
@@ -22,10 +24,13 @@ import java.util.concurrent.ConcurrentLinkedQueue
 @ConditionalOnProperty(value = ["transport.mode"], havingValue = "kafka")
 class KafkaEventTransport(
     private val kafkaTemplate: KafkaTemplate<String, Event>,
+    private val eventBus: EventBus,
     @Value("\${spring.kafka.topics.events}") private val eventsTopic: String,
 ) : EventTransport {
     private val logger = LoggerFactory.getLogger(KafkaEventTransport::class.java)
-    private val eventQueue = ConcurrentLinkedQueue<Event>()
+
+    private val jobScope: CoroutineScope
+        get() = CoroutineScope(Job() + Dispatchers.IO)
 
     override suspend fun publishEvent(event: Event) {
         try {
@@ -48,24 +53,9 @@ class KafkaEventTransport(
         }
     }
 
-    override fun subscribeToEvents(): Flow<Event> =
-        callbackFlow {
-            // Create a coroutine to poll from the queue and emit events
-            val job =
-                launch {
-                    while (true) {
-                        val event = eventQueue.poll()
-                        if (event != null) {
-                            send(event)
-                        } else {
-                            kotlinx.coroutines.delay(10) // Small delay to prevent busy-waiting
-                        }
-                    }
-                }
-
-            // Clean up when the flow is cancelled
-            invokeOnClose { job.cancel() }
-        }
+    override fun subscribeToEvents(): Flow<Event> {
+        return eventBus.events
+    }
 
     @KafkaListener(
         topics = ["\${spring.kafka.topics.events}"],
@@ -76,11 +66,13 @@ class KafkaEventTransport(
         acknowledgment: Acknowledgment,
     ) {
         try {
-            val event = record.value()
+            val event = record.value() ?: return
             logger.debug("Received event from Kafka: {}", event)
 
-            // Add to queue for flow subscribers
-            eventQueue.offer(event)
+            jobScope.launch {
+                // Publish to in-memory event bus for processing
+                eventBus.publishEvent(event)
+            }
 
             // Acknowledge the message
             acknowledgment.acknowledge()
