@@ -39,7 +39,7 @@ class KafkaEventTransport(
                     if (exception != null) {
                         logger.error("Failed to send event to Kafka", exception)
                     } else {
-                        logger.info(
+                        logger.debug(
                             "Event sent to Kafka: topic={}, partition={}, offset={}",
                             result.recordMetadata.topic(),
                             result.recordMetadata.partition(),
