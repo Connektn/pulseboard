@@ -317,3 +317,133 @@ DoD:
 
 - Labels: `epic:bootstrap`, `epic:backend`, `epic:streaming`, `epic:rules`, `epic:api`, `epic:ui`, `epic:kafka`, `epic:tests`, `epic:docs`, `good first issue`.
 - Order: A1 → A2 → A3 → B1 → B2 → C1 → D1 → E1 → E2 → F1 → F2 → G1 → G2 → G3 → G4 → I1 → I2 → J1 → J2 → (H1, H2 optional parallel after F1).
+
+# EPIC K — CDP Core (Backend)
+
+## K1. CDP models & ingest API
+
+Goal: Define CDP event/profile models and expose POST /cdp/ingest.
+
+Deliverables:
+- `backend/src/main/kotlin/cdp/model/CdpEvent.kt`:
+  - Fields: 
+    - eventId:String 
+    - ts:Instant 
+    - type:IDENTIFY|TRACK|ALIAS 
+    - anonymousId:String? 
+    - userId:String? 
+    - email:String? 
+    - name:String? 
+    - properties:Map<String,Any?> 
+    - traits:Map<String,Any?>
+  - Jackson config to accept ISO-8601 instants.
+- `backend/src/main/kotlin/cdp/model/CdpProfile.kt`: 
+  - Fields:
+    - profileId:String
+    - identifiers:{userIds,emails,anonymousIds}
+    - traits:Map<String,Any?>
+    - counters:Map<String,Long>
+    - segments:Set<String>
+    - lastSeen:Instant
+- `backend/src/main/kotlin/cdp/api/CdpIngestController.kt`:
+  - `POST /cdp/ingest` (application/json) → validate → publish to in-mem `MutableSharedFlow<CdpEvent>`
+- Validation: `eventId` required, `ts` required; `TRACK` requires `name`; at least one of `anonymousId|userId|email` present.
+- Unit tests for model (de)serialization and controller validation (WebFlux slice).
+
+DoD:
+- curl with sample payload returns 202 and event appears on an in-mem probe subscriber.
+- Failing validations return 400 with message.
+
+## K2. Identity graph (union-find)
+
+Goal: Resolve identifiers (user:, email:, anon:) to a canonical profileId.
+
+Deliverables:
+- `backend/src/main/kotlin/cdp/identity/IdentityGraph.kt`:
+  - `find(id:String):String`, `union(a:String,b:String)`, path compression.
+  - `canonicalIdFor(ids: List<String>): String` (stable, deterministic). 
+- Normalization helpers: lowercase emails, trim spaces; `user:`, `email:`, `anon:` prefixes.
+- Apply unions on `IDENTIFY` (when multiple identifiers present) & `ALIAS`.
+
+DoD:
+- Unit tests: unions transitive; canonical id stable; email normalization works.
+
+## K3. Profile store & LWW traits
+
+Goal: Maintain profiles and merge traits with last-write-wins (by event timestamp).
+
+Deliverables:
+- `backend/src/main/kotlin/cdp/store/ProfileStore.kt`:
+  - `getOrCreate(profileId)`, `mergeTraits(profileId, traits, ts)`, `updateLastSeen(profileId, ts)`.
+  - Store identifiers in sets; expose read-only view model.
+- Ensure LWW: a trait with older `ts` must not override newer value.
+
+DoD:
+- Tests: newer `plan=pro` overrides older `plan=basic`; `lastSeen` updates correctly.
+
+## K4. Event-time buffer + watermark + dedup
+
+Goal: Process out-of-order events per profile with bounded lateness; ignore duplicates.
+
+Deliverables:
+- `backend/src/main/kotlin/cdp/runtime/CdpEventProcessor.kt`:
+  - Per `profileId` priority queue (min-heap) by `ts`, bounded by `allowedLateness=120s`.
+  - Global ticker (every 1s): compute `watermark = now() - allowedLateness`; drain & process events `<= watermark` in order.
+  - Dedup: `Cache<eventId, Boolean>` per profile with `TTL=10m` (Caffeine).
+- Metrics (Micrometer): buffered events, processed/sec, dedup hits, watermark lag.
+
+DoD:
+- Tests: shuffled sequence processes in timestamp order; duplicate eventId ignored.
+
+## K5. Rolling counters for TRACK
+
+Goal: Maintain per-profile rolling counts for TRACK events (24h, 1-minute buckets).
+
+Deliverables:
+- `RollingCounter.kt`: append with `ts`, query `count(profileId, name, window=PT24H)`.
+- Evict old buckets automatically.
+
+DoD:
+- Tests: counts roll off after window; multiple names isolated.
+
+## K6. Segment engine (hardcoded rules)
+
+Goal: Compute segment membership and emit enter/exit events.
+
+Rules (initial):
+- `power_user`: TRACK[name="Feature Used"] count ≥ 5 in 24h.
+- `pro_plan`: trait `plan == "pro"`.
+- `reengage`: `now - lastSeen > 10m` (for demo; configurable).
+
+Deliverables:
+- `SegmentEngine.kt`: `evaluate(profile): Set<String>`; diff old vs new → `SegmentEvent { profileId, segment, action: ENTER|EXIT, ts }`.
+- Publish `SegmentEvent` to a `MutableSharedFlow<SegmentEvent>`.
+
+DoD:
+- Tests for enter/exit transitions across boundary conditions.
+
+## K7. Processing pipeline wiring
+
+Goal: Wire ingest → identity → buffering → in-order apply → store → segments.
+
+Deliverables: 
+- On each drained event:
+  - Resolve canonical `profileId` via `IdentityGraph`.
+  - Merge identifiers; apply traits LWW; update counters and `lastSeen`.
+  - Evaluate segments; emit `SegmentEvent`s when changed.
+- Backpressure: bounded buffers with DROP_OLDEST + metrics/logs on drop.
+
+DoD:
+- Local run with a synthetic sequence yields expected profile state and segment events.
+
+## K8. SSE endpoints (profiles & segments)
+
+Goal: Stream real-time updates to UI.
+
+Deliverables:
+- `GET /sse/cdp/segments` → `SegmentEvent` as SSE JSON; heartbeat 10s.
+- `GET /sse/cdp/profiles` → throttled profile summaries (id, plan, country, lastSeen, counts).
+- CORS enabled for UI origin.
+
+DoD:
+- `curl` to both endpoints shows live JSON lines while processor runs.
