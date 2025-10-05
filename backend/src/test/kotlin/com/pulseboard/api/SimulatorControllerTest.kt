@@ -56,16 +56,22 @@ class SimulatorControllerTest {
     fun `startSimulation should start simulator when not running`() =
         runTest {
             every { mockSimulator.isRunning() } returns false
+            every { mockSimulator.setRatePerSecond(any()) } returns Unit
+            every { mockSimulator.setLatenessSec(any()) } returns Unit
+            every { mockSimulator.getRatePerSecond() } returns 10.0
+            every { mockSimulator.getLatenessSec() } returns 90L
             coEvery { mockSimulator.start(any()) } returns Unit
             every { mockSimulator.getCurrentProfile() } returns Profile.SASE
 
-            val result = controller.startSimulation()
+            val result = controller.startSimulation(null, 10, 90)
 
             assertEquals(
                 mapOf(
                     "status" to "started",
                     "message" to "Simulator started successfully",
                     "profile" to "SASE",
+                    "rps" to 10.0,
+                    "latenessSec" to 90L,
                 ),
                 result,
             )
@@ -76,15 +82,21 @@ class SimulatorControllerTest {
     fun `startSimulation should return already running when simulator is active`() =
         runTest {
             every { mockSimulator.isRunning() } returns true
+            every { mockSimulator.setRatePerSecond(any()) } returns Unit
+            every { mockSimulator.setLatenessSec(any()) } returns Unit
+            every { mockSimulator.getRatePerSecond() } returns 10.0
+            every { mockSimulator.getLatenessSec() } returns 90L
             every { mockSimulator.getCurrentProfile() } returns Profile.IGAMING
 
-            val result = controller.startSimulation()
+            val result = controller.startSimulation(null, 10, 90)
 
             assertEquals(
                 mapOf(
                     "status" to "already_running",
                     "message" to "Simulator is already running",
                     "profile" to "IGAMING",
+                    "rps" to 10.0,
+                    "latenessSec" to 90L,
                 ),
                 result,
             )
@@ -161,6 +173,69 @@ class SimulatorControllerTest {
                     "running" to false,
                     "profile" to "IGAMING",
                     "status" to "stopped",
+                ),
+                result,
+            )
+        }
+
+    @Test
+    fun `startSimulation should accept CDP profile with custom rps and lateness`() =
+        runTest {
+            every { mockSimulator.isRunning() } returns false
+            every { mockSimulator.setProfile(Profile.CDP) } returns Unit
+            every { mockSimulator.setRatePerSecond(20.0) } returns Unit
+            every { mockSimulator.setLatenessSec(120L) } returns Unit
+            every { mockSimulator.getRatePerSecond() } returns 20.0
+            every { mockSimulator.getLatenessSec() } returns 120L
+            coEvery { mockSimulator.start(any()) } returns Unit
+            every { mockSimulator.getCurrentProfile() } returns Profile.CDP
+
+            val result = controller.startSimulation("CDP", 20, 120)
+
+            assertEquals(
+                mapOf(
+                    "status" to "started",
+                    "message" to "Simulator started successfully",
+                    "profile" to "CDP",
+                    "rps" to 20.0,
+                    "latenessSec" to 120L,
+                ),
+                result,
+            )
+            verify { mockSimulator.setProfile(Profile.CDP) }
+            verify { mockSimulator.setRatePerSecond(20.0) }
+            verify { mockSimulator.setLatenessSec(120L) }
+        }
+
+    @Test
+    fun `startSimulation should reject invalid profile parameter`() =
+        runTest {
+            val result = controller.startSimulation("INVALID_PROFILE", 10, 90)
+
+            assertEquals("error", result["status"])
+            assertEquals("Invalid profile: INVALID_PROFILE. Valid values: SASE, IGAMING, CDP", result["message"])
+        }
+
+    @Test
+    fun `startSimulation should use default values when not specified`() =
+        runTest {
+            every { mockSimulator.isRunning() } returns false
+            every { mockSimulator.setRatePerSecond(10.0) } returns Unit
+            every { mockSimulator.setLatenessSec(90L) } returns Unit
+            every { mockSimulator.getRatePerSecond() } returns 10.0
+            every { mockSimulator.getLatenessSec() } returns 90L
+            coEvery { mockSimulator.start(any()) } returns Unit
+            every { mockSimulator.getCurrentProfile() } returns Profile.SASE
+
+            val result = controller.startSimulation(null, 10, 90)
+
+            assertEquals(
+                mapOf(
+                    "status" to "started",
+                    "message" to "Simulator started successfully",
+                    "profile" to "SASE",
+                    "rps" to 10.0,
+                    "latenessSec" to 90L,
                 ),
                 result,
             )
