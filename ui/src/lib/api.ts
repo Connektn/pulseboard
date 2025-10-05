@@ -7,17 +7,19 @@ export interface HealthResponse {
 }
 
 export interface ProfileResponse {
-  profile: 'SASE' | 'IGAMING';
+  profile: 'SASE' | 'IGAMING' | 'CDP';
 }
 
 export interface ProfileRequest {
-  profile: 'SASE' | 'IGAMING';
+  profile: 'SASE' | 'IGAMING' | 'CDP';
 }
 
 export interface SimulatorResponse {
-  status: 'started' | 'stopped' | 'running' | 'not_running';
+  status: 'started' | 'stopped' | 'running' | 'not_running' | 'already_running' | 'already_stopped' | 'error';
   message: string;
-  profile: 'SASE' | 'IGAMING';
+  profile: 'SASE' | 'IGAMING' | 'CDP';
+  rps?: number;
+  latenessSec?: number;
 }
 
 export interface StatsOverview {
@@ -64,7 +66,7 @@ export class ApiClient {
     return this.request<ProfileResponse>('/profile');
   }
 
-  async setProfile(profile: 'SASE' | 'IGAMING'): Promise<ProfileResponse> {
+  async setProfile(profile: 'SASE' | 'IGAMING' | 'CDP'): Promise<ProfileResponse> {
     return this.request<ProfileResponse>('/profile', {
       method: 'POST',
       body: JSON.stringify({ profile }),
@@ -72,8 +74,16 @@ export class ApiClient {
   }
 
   // Simulator endpoints
-  async startSimulator(): Promise<SimulatorResponse> {
-    return this.request<SimulatorResponse>('/sim/start', {
+  async startSimulator(params?: { profile?: string; rps?: number; latenessSec?: number }): Promise<SimulatorResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.profile) queryParams.append('profile', params.profile);
+    if (params?.rps !== undefined) queryParams.append('rps', params.rps.toString());
+    if (params?.latenessSec !== undefined) queryParams.append('latenessSec', params.latenessSec.toString());
+
+    const query = queryParams.toString();
+    const endpoint = query ? `/sim/start?${query}` : '/sim/start';
+
+    return this.request<SimulatorResponse>(endpoint, {
       method: 'POST',
     });
   }
@@ -98,10 +108,10 @@ export const api = {
   health: () => apiClient.getHealth(),
   profile: {
     get: () => apiClient.getProfile(),
-    set: (profile: 'SASE' | 'IGAMING') => apiClient.setProfile(profile),
+    set: (profile: 'SASE' | 'IGAMING' | 'CDP') => apiClient.setProfile(profile),
   },
   simulator: {
-    start: () => apiClient.startSimulator(),
+    start: (params?: { profile?: string; rps?: number; latenessSec?: number }) => apiClient.startSimulator(params),
     stop: () => apiClient.stopSimulator(),
   },
   stats: {
