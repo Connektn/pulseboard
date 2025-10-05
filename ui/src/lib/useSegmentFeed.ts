@@ -7,7 +7,7 @@ export type SegmentAction = 'ENTER' | 'EXIT';
 export interface SegmentEvent {
   ts: string; // ISO timestamp
   profileId: string;
-  segmentName: string;
+  segment: string; // Changed from segmentName to match backend
   action: SegmentAction;
 }
 

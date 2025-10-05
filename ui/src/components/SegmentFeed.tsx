@@ -33,7 +33,7 @@ export function SegmentFeed({ isSimulatorRunning }: SegmentFeedProps) {
       return displayedEvents;
     }
     return displayedEvents.filter((event) =>
-      selectedFilters.has(event.segmentName)
+      selectedFilters.has(event.segment)
     );
   }, [displayedEvents, selectedFilters]);
 
@@ -133,8 +133,8 @@ export function SegmentFeed({ isSimulatorRunning }: SegmentFeedProps) {
   };
 
   // Get color for segment name
-  const getSegmentColor = (segmentName: string): string => {
-    switch (segmentName) {
+  const getSegmentColor = (segment: string): string => {
+    switch (segment) {
       case 'power_user':
         return '#3b82f6'; // Blue
       case 'pro_plan':
@@ -331,11 +331,11 @@ export function SegmentFeed({ isSimulatorRunning }: SegmentFeedProps) {
                 <span style={{ color: '#111827' }}>•</span>
                 <span
                   style={{
-                    color: getSegmentColor(event.segmentName),
+                    color: getSegmentColor(event.segment),
                     fontWeight: '600',
                   }}
                 >
-                  {event.segmentName}
+                  {event.segment}
                 </span>
               </div>
             ))}

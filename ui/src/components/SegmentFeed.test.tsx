@@ -14,25 +14,25 @@ describe('SegmentFeed', () => {
     {
       ts: '2025-10-05T10:15:30Z',
       profileId: 'user-42',
-      segmentName: 'power_user',
+      segment: 'power_user',
       action: 'ENTER',
     },
     {
       ts: '2025-10-05T10:16:45Z',
       profileId: 'user-99',
-      segmentName: 'pro_plan',
+      segment: 'pro_plan',
       action: 'EXIT',
     },
     {
       ts: '2025-10-05T10:17:12Z',
       profileId: 'user-33',
-      segmentName: 'reengage',
+      segment: 'reengage',
       action: 'ENTER',
     },
     {
       ts: '2025-10-05T10:18:00Z',
       profileId: 'user-42',
-      segmentName: 'pro_plan',
+      segment: 'pro_plan',
       action: 'ENTER',
     },
   ];
@@ -147,7 +147,7 @@ describe('SegmentFeed', () => {
         {
           ts: '2025-10-05T10:15:30Z',
           profileId: 'user-1',
-          segmentName: 'other_segment',
+          segment: 'other_segment',
           action: 'ENTER',
         },
       ],
@@ -215,7 +215,7 @@ describe('SegmentFeed', () => {
         {
           ts: '2025-10-05T14:05:12Z',
           profileId: 'user-1',
-          segmentName: 'power_user',
+          segment: 'power_user',
           action: 'ENTER',
         },
       ],
@@ -237,54 +237,54 @@ describe('SegmentFeed', () => {
 describe('SegmentFeed filter logic', () => {
   it('should correctly filter events by segment name', () => {
     const events: SegmentEvent[] = [
-      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segmentName: 'power_user', action: 'ENTER' },
-      { ts: '2025-10-05T10:01:00Z', profileId: 'user-2', segmentName: 'pro_plan', action: 'ENTER' },
-      { ts: '2025-10-05T10:02:00Z', profileId: 'user-3', segmentName: 'reengage', action: 'EXIT' },
-      { ts: '2025-10-05T10:03:00Z', profileId: 'user-4', segmentName: 'power_user', action: 'EXIT' },
+      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segment: 'power_user', action: 'ENTER' },
+      { ts: '2025-10-05T10:01:00Z', profileId: 'user-2', segment: 'pro_plan', action: 'ENTER' },
+      { ts: '2025-10-05T10:02:00Z', profileId: 'user-3', segment: 'reengage', action: 'EXIT' },
+      { ts: '2025-10-05T10:03:00Z', profileId: 'user-4', segment: 'power_user', action: 'EXIT' },
     ];
 
     // Test filtering for single segment
     const selectedFilters = new Set(['power_user']);
-    const filtered = events.filter((event) => selectedFilters.has(event.segmentName));
+    const filtered = events.filter((event) => selectedFilters.has(event.segment));
 
     expect(filtered).toHaveLength(2);
-    expect(filtered.every((e) => e.segmentName === 'power_user')).toBe(true);
+    expect(filtered.every((e) => e.segment === 'power_user')).toBe(true);
   });
 
   it('should return all events when no filters are selected', () => {
     const events: SegmentEvent[] = [
-      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segmentName: 'power_user', action: 'ENTER' },
-      { ts: '2025-10-05T10:01:00Z', profileId: 'user-2', segmentName: 'pro_plan', action: 'ENTER' },
+      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segment: 'power_user', action: 'ENTER' },
+      { ts: '2025-10-05T10:01:00Z', profileId: 'user-2', segment: 'pro_plan', action: 'ENTER' },
     ];
 
     const selectedFilters = new Set<string>();
-    const filtered = selectedFilters.size === 0 ? events : events.filter((event) => selectedFilters.has(event.segmentName));
+    const filtered = selectedFilters.size === 0 ? events : events.filter((event) => selectedFilters.has(event.segment));
 
     expect(filtered).toHaveLength(2);
   });
 
   it('should filter events by multiple segments', () => {
     const events: SegmentEvent[] = [
-      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segmentName: 'power_user', action: 'ENTER' },
-      { ts: '2025-10-05T10:01:00Z', profileId: 'user-2', segmentName: 'pro_plan', action: 'ENTER' },
-      { ts: '2025-10-05T10:02:00Z', profileId: 'user-3', segmentName: 'reengage', action: 'EXIT' },
+      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segment: 'power_user', action: 'ENTER' },
+      { ts: '2025-10-05T10:01:00Z', profileId: 'user-2', segment: 'pro_plan', action: 'ENTER' },
+      { ts: '2025-10-05T10:02:00Z', profileId: 'user-3', segment: 'reengage', action: 'EXIT' },
     ];
 
     const selectedFilters = new Set(['power_user', 'reengage']);
-    const filtered = events.filter((event) => selectedFilters.has(event.segmentName));
+    const filtered = events.filter((event) => selectedFilters.has(event.segment));
 
     expect(filtered).toHaveLength(2);
-    expect(filtered[0].segmentName).toBe('power_user');
-    expect(filtered[1].segmentName).toBe('reengage');
+    expect(filtered[0].segment).toBe('power_user');
+    expect(filtered[1].segment).toBe('reengage');
   });
 
   it('should return empty array when filters match no events', () => {
     const events: SegmentEvent[] = [
-      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segmentName: 'other_segment', action: 'ENTER' },
+      { ts: '2025-10-05T10:00:00Z', profileId: 'user-1', segment: 'other_segment', action: 'ENTER' },
     ];
 
     const selectedFilters = new Set(['power_user']);
-    const filtered = events.filter((event) => selectedFilters.has(event.segmentName));
+    const filtered = events.filter((event) => selectedFilters.has(event.segment));
 
     expect(filtered).toHaveLength(0);
   });
