@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useEventSource, SSEMessage } from './useEventSource';
+import { useEventSource } from './useEventSource';
 
 // ProfileIdentifiers matching backend model
 export interface ProfileIdentifiers {
