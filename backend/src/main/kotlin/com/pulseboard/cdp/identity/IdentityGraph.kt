@@ -1,11 +1,13 @@
 package com.pulseboard.cdp.identity
 
+import org.springframework.stereotype.Component
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Identity graph using union-find algorithm with path compression.
  * Resolves multiple identifiers (user:, email:, anon:) to a canonical profileId.
  */
+@Component
 class IdentityGraph {
     // Parent mapping for union-find
     private val parent = ConcurrentHashMap<String, String>()

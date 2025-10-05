@@ -1,6 +1,7 @@
 package com.pulseboard.cdp.store
 
 import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
 import java.time.Duration
 import java.time.Instant
 import java.util.TreeMap
@@ -15,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  * - Automatic bucket eviction
  * - Per (profileId, eventName) isolation
  */
+@Component
 class RollingCounter(
     private val window: Duration = Duration.ofHours(24),
     private val bucketSize: Duration = Duration.ofMinutes(1)
