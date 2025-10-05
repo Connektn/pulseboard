@@ -16,9 +16,21 @@ export function CdpKpiPanel({ isSimulatorRunning }: CdpKpiPanelProps) {
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<any>(null);
 
-  // Initialize Chart.js sparkline
+  // Initialize Chart.js sparkline when simulator starts
   useEffect(() => {
-    if (!chartRef.current || typeof window.Chart === 'undefined') return;
+    if (!isSimulatorRunning) {
+      // Cleanup chart when simulator stops
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
+      }
+      return;
+    }
+
+    if (!chartRef.current || typeof window.Chart === 'undefined') {
+      console.warn('Chart.js not loaded or canvas ref not available');
+      return;
+    }
 
     const ctx = chartRef.current.getContext('2d');
     if (!ctx) return;
@@ -36,7 +48,7 @@ export function CdpKpiPanel({ isSimulatorRunning }: CdpKpiPanelProps) {
         datasets: [
           {
             label: 'Segment ENTERs/min',
-            data: kpis.segmentEntersHistory,
+            data: [],
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
             borderWidth: 2,
@@ -84,13 +96,17 @@ export function CdpKpiPanel({ isSimulatorRunning }: CdpKpiPanelProps) {
     return () => {
       if (chartInstanceRef.current) {
         chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
       }
     };
-  }, []); // Only initialize once
+  }, [isSimulatorRunning]);
 
   // Update chart data
   useEffect(() => {
-    if (!chartInstanceRef.current) return;
+    if (!chartInstanceRef.current || !isSimulatorRunning) return;
+    if (kpis.segmentEntersHistory.length === 0) return;
+
+    console.log('Updating sparkline with', kpis.segmentEntersHistory.length, 'data points');
 
     // Use requestAnimationFrame to avoid reflow
     requestAnimationFrame(() => {
@@ -99,7 +115,7 @@ export function CdpKpiPanel({ isSimulatorRunning }: CdpKpiPanelProps) {
         chartInstanceRef.current.update('none'); // Update without animation
       }
     });
-  }, [kpis.segmentEntersHistory]);
+  }, [kpis.segmentEntersHistory, isSimulatorRunning]);
 
   // Simulator not running state
   if (!isSimulatorRunning) {
