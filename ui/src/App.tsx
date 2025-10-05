@@ -60,7 +60,8 @@ function App() {
         padding: '2rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '2rem'
+        gap: '2rem',
+        overflowY: 'auto'
       }}>
         {/* SSE Connection Status */}
         <div style={{

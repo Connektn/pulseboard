@@ -109,7 +109,7 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
   const { profiles, connected, error } = useCdpProfiles(isSimulatorRunning);
   const [selectedProfile, setSelectedProfile] = useState<ProfileSummary | null>(null);
 
-  // Throttled profiles: update at most once per 2 seconds to avoid scroll jank
+  // Throttled profiles: update at most once per 5 seconds to avoid scroll jank
   const [displayedProfiles, setDisplayedProfiles] = useState<ProfileSummary[]>([]);
 
   useEffect(() => {
@@ -118,7 +118,7 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
 
     const interval = setInterval(() => {
       setDisplayedProfiles(profiles);
-    }, 2000); // Throttle to 2s
+    }, 5000); // Throttle to 5s to reduce scroll jank
 
     return () => clearInterval(interval);
   }, [profiles]);
