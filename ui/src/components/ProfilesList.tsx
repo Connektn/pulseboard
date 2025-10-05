@@ -105,9 +105,33 @@ const ProfileRow = memo(({ profile, onClick }: { profile: ProfileSummary; onClic
 
 ProfileRow.displayName = 'ProfileRow';
 
-export function ProfilesList() {
-  const { profiles, connected, error } = useCdpProfiles();
+export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boolean }) {
+  const { profiles, connected, error } = useCdpProfiles(isSimulatorRunning);
   const [selectedProfile, setSelectedProfile] = useState<ProfileSummary | null>(null);
+
+  // Simulator not running state
+  if (!isSimulatorRunning) {
+    return (
+      <div
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '0.5rem',
+          padding: '2rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        <div style={{ textAlign: 'center', color: '#6b7280' }}>
+          <div style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+            Simulator not running
+          </div>
+          <div style={{ fontSize: '0.875rem' }}>
+            Click the Start button to begin generating CDP events
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (!connected && profiles.length === 0) {

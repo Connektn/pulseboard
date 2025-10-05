@@ -10,9 +10,10 @@ interface HeaderProps {
   onProfileChange?: (profile: 'SASE' | 'IGAMING' | 'CDP') => void;
   onSimulatorStart?: () => void;
   onSimulatorStop?: () => void;
+  onSimulatorStatusChange?: (running: boolean) => void;
 }
 
-export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorStop }: HeaderProps) {
+export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorStop, onSimulatorStatusChange }: HeaderProps) {
   const [currentProfile, setCurrentProfile] = useState<'SASE' | 'IGAMING' | 'CDP'>('SASE');
   const [isSimulatorRunning, setIsSimulatorRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,9 +21,9 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
   const [latenessSec, setLatenessSec] = useState(60);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Load profile from localStorage and backend on mount
+  // Load profile and simulator status from backend on mount
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadInitialState = async () => {
       try {
         // Try to get saved profile from localStorage with new key
         const savedProfile = localStorage.getItem('pb.activeProfile') as 'SASE' | 'IGAMING' | 'CDP' | null;
@@ -31,27 +32,45 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
         const response = await api.profile.get();
         const backendProfile = response.profile;
 
+        // Determine which profile to use
+        let finalProfile: 'SASE' | 'IGAMING' | 'CDP';
+
         // If we have a saved profile different from backend, sync it
         if (savedProfile && savedProfile !== backendProfile) {
           await api.profile.set(savedProfile);
-          setCurrentProfile(savedProfile);
+          finalProfile = savedProfile;
         } else {
-          setCurrentProfile(backendProfile);
+          finalProfile = backendProfile;
           // Save to localStorage if not already saved
           if (!savedProfile) {
             localStorage.setItem('pb.activeProfile', backendProfile);
           }
         }
+
+        // Update local state
+        setCurrentProfile(finalProfile);
+
+        // Notify parent component
+        onProfileChange?.(finalProfile);
+
+        // Check simulator status
+        const simStatus = await api.simulator.status();
+        setIsSimulatorRunning(simStatus.running);
+
+        // Notify parent of initial simulator status
+        onSimulatorStatusChange?.(simStatus.running);
       } catch (error) {
-        console.error('Failed to load profile:', error);
+        console.error('Failed to load initial state:', error);
         // Fallback to SASE if error
         setCurrentProfile('SASE');
         localStorage.setItem('pb.activeProfile', 'SASE');
+        onProfileChange?.('SASE');
       }
     };
 
-    loadProfile();
-  }, []);
+    loadInitialState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -99,6 +118,7 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
       if (response.status === 'started' || response.status === 'already_running') {
         setIsSimulatorRunning(true);
         onSimulatorStart?.();
+        onSimulatorStatusChange?.(true);
         setToast({ message: 'Simulator started successfully', type: 'success' });
       } else if (response.status === 'error') {
         setToast({ message: response.message || 'Failed to start simulator', type: 'error' });
@@ -119,6 +139,7 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
       if (response.status === 'stopped' || response.status === 'already_stopped') {
         setIsSimulatorRunning(false);
         onSimulatorStop?.();
+        onSimulatorStatusChange?.(false);
         setToast({ message: 'Simulator stopped successfully', type: 'success' });
       }
     } catch (error) {

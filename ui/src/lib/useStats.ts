@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { api, type StatsOverview } from './api';
 
-export function useStats(intervalMs: number = 2000) {
+export function useStats(enabled: boolean = true, intervalMs: number = 2000) {
   const [stats, setStats] = useState<StatsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Skip if disabled
+    if (!enabled) {
+      return;
+    }
+
     const updateStats = async () => {
       try {
         const response = await api.stats.overview();
@@ -26,7 +31,7 @@ export function useStats(intervalMs: number = 2000) {
     const interval = setInterval(updateStats, intervalMs);
 
     return () => clearInterval(interval);
-  }, [intervalMs]);
+  }, [enabled, intervalMs]);
 
   return {
     stats,

@@ -94,6 +94,10 @@ export class ApiClient {
     });
   }
 
+  async getSimulatorStatus(): Promise<{ running: boolean; profile: string; status: string }> {
+    return this.request<{ running: boolean; profile: string; status: string }>('/sim/status');
+  }
+
   // Stats endpoint
   async getStatsOverview(): Promise<StatsOverview> {
     return this.request<StatsOverview>('/stats/overview');
@@ -113,6 +117,7 @@ export const api = {
   simulator: {
     start: (params?: { profile?: string; rps?: number; latenessSec?: number }) => apiClient.startSimulator(params),
     stop: () => apiClient.stopSimulator(),
+    status: () => apiClient.getSimulatorStatus(),
   },
   stats: {
     overview: () => apiClient.getStatsOverview(),

@@ -30,9 +30,11 @@ export interface CdpProfilesState {
  *
  * Subscribes to /sse/cdp/profiles and maintains a list of the top 20 profiles
  * sorted by lastSeen (descending).
+ *
+ * @param enabled - Whether to establish the SSE connection (default: true)
  */
-export function useCdpProfiles(): CdpProfilesState {
-  const { lastMessage, connected, error } = useEventSource<ProfileSummary[]>('/sse/cdp/profiles');
+export function useCdpProfiles(enabled: boolean = true): CdpProfilesState {
+  const { lastMessage, connected, error } = useEventSource<ProfileSummary[]>('/sse/cdp/profiles', { enabled });
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
 
   useEffect(() => {

@@ -31,6 +31,7 @@ export interface UseSSEOptions {
   maxAlerts?: number; // Maximum number of alerts to keep in memory
   reconnectDelay?: number; // Delay before reconnecting in ms
   baseUrl?: string; // Backend base URL
+  enabled?: boolean; // Whether to establish the connection
 }
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
@@ -40,6 +41,7 @@ export function useSSE(options: UseSSEOptions = {}): SSEState {
     maxAlerts = 100,
     reconnectDelay = 3000,
     baseUrl = BASE_URL,
+    enabled = true,
   } = options;
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -52,6 +54,11 @@ export function useSSE(options: UseSSEOptions = {}): SSEState {
   const mountedRef = useRef(true);
 
   const connect = useCallback(() => {
+    // Skip if disabled
+    if (!enabled) {
+      return;
+    }
+
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
@@ -122,10 +129,21 @@ export function useSSE(options: UseSSEOptions = {}): SSEState {
         }
       }, reconnectDelay);
     };
-  }, [baseUrl, maxAlerts, reconnectDelay]);
+  }, [baseUrl, maxAlerts, reconnectDelay, enabled]);
 
   // Connect on mount and handle cleanup
   useEffect(() => {
+    // Skip if disabled
+    if (!enabled) {
+      // Close any existing connection if disabled
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      setConnected(false);
+      return;
+    }
+
     mountedRef.current = true;
     connect();
 
@@ -140,7 +158,7 @@ export function useSSE(options: UseSSEOptions = {}): SSEState {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [baseUrl, reconnectDelay, connect]);
+  }, [connect, enabled]);
 
   return {
     alerts,

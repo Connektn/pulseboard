@@ -1,5 +1,5 @@
 import './App.css'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Header } from './components/Header'
 import { AlertsTable } from './components/AlertsTable'
 import { KPIPanel } from './components/KPIPanel'
@@ -8,22 +8,33 @@ import { useStats } from './lib/useStats'
 import { useSSE } from './lib/useSSE'
 
 function App() {
-  const { stats } = useStats(2000); // Poll every 2 seconds
-  const { alerts, connected, error } = useSSE({ maxAlerts: 100 });
   const [currentProfile, setCurrentProfile] = useState<'SASE' | 'IGAMING' | 'CDP'>('SASE');
+  const [isSimulatorRunning, setIsSimulatorRunning] = useState(false);
 
-  const handleProfileChange = (profile: 'SASE' | 'IGAMING' | 'CDP') => {
+  // Only fetch stats and alerts for non-CDP profiles when simulator is running
+  const shouldFetchData = currentProfile !== 'CDP' && isSimulatorRunning;
+  const { stats } = useStats(shouldFetchData, 2000);
+  const { alerts, connected, error } = useSSE({ maxAlerts: 100, enabled: shouldFetchData });
+
+  const handleProfileChange = useCallback((profile: 'SASE' | 'IGAMING' | 'CDP') => {
     console.log('Profile changed to:', profile);
     setCurrentProfile(profile);
-  };
+  }, []);
 
-  const handleSimulatorStart = () => {
+  const handleSimulatorStart = useCallback(() => {
     console.log('Simulator started');
-  };
+    setIsSimulatorRunning(true);
+  }, []);
 
-  const handleSimulatorStop = () => {
+  const handleSimulatorStop = useCallback(() => {
     console.log('Simulator stopped');
-  };
+    setIsSimulatorRunning(false);
+  }, []);
+
+  const handleSimulatorStatusChange = useCallback((running: boolean) => {
+    console.log('Simulator status changed:', running);
+    setIsSimulatorRunning(running);
+  }, []);
 
   return (
     <div style={{
@@ -39,6 +50,7 @@ function App() {
         onProfileChange={handleProfileChange}
         onSimulatorStart={handleSimulatorStart}
         onSimulatorStop={handleSimulatorStop}
+        onSimulatorStatusChange={handleSimulatorStatusChange}
       />
 
       {/* Main Content Area */}
@@ -101,7 +113,7 @@ function App() {
         {/* Conditional Content Based on Profile */}
         {currentProfile === 'CDP' ? (
           /* CDP View */
-          <ProfilesList />
+          <ProfilesList isSimulatorRunning={isSimulatorRunning} />
         ) : (
           /* SASE/IGAMING View */
           <>

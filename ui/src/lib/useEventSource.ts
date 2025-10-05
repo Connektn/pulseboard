@@ -19,6 +19,7 @@ export interface EventSourceState<T> {
 export interface UseEventSourceOptions {
   reconnectDelay?: number; // Delay before reconnecting in ms
   baseUrl?: string; // Backend base URL
+  enabled?: boolean; // Whether to establish the connection
 }
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
@@ -37,6 +38,7 @@ export function useEventSource<T = unknown>(
   const {
     reconnectDelay = 3000,
     baseUrl = BASE_URL,
+    enabled = true,
   } = options;
 
   const [lastMessage, setLastMessage] = useState<SSEMessage<T> | null>(null);
@@ -48,6 +50,11 @@ export function useEventSource<T = unknown>(
   const mountedRef = useRef(true);
 
   const connect = useCallback(() => {
+    // Skip if disabled
+    if (!enabled) {
+      return;
+    }
+
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
@@ -97,10 +104,21 @@ export function useEventSource<T = unknown>(
         }
       }, reconnectDelay);
     };
-  }, [baseUrl, endpoint, reconnectDelay]);
+  }, [baseUrl, endpoint, reconnectDelay, enabled]);
 
   // Connect on mount and handle cleanup
   useEffect(() => {
+    // Skip if disabled
+    if (!enabled) {
+      // Close any existing connection if disabled
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      setConnected(false);
+      return;
+    }
+
     mountedRef.current = true;
     connect();
 
