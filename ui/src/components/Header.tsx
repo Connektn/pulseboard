@@ -7,22 +7,25 @@ interface HeaderProps {
     alertsPerMin: number;
     uptimeSec: number;
   } | null;
-  onProfileChange?: (profile: 'SASE' | 'IGAMING') => void;
+  onProfileChange?: (profile: 'SASE' | 'IGAMING' | 'CDP') => void;
   onSimulatorStart?: () => void;
   onSimulatorStop?: () => void;
 }
 
 export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorStop }: HeaderProps) {
-  const [currentProfile, setCurrentProfile] = useState<'SASE' | 'IGAMING'>('SASE');
+  const [currentProfile, setCurrentProfile] = useState<'SASE' | 'IGAMING' | 'CDP'>('SASE');
   const [isSimulatorRunning, setIsSimulatorRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [rps, setRps] = useState(20);
+  const [latenessSec, setLatenessSec] = useState(60);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Load profile from localStorage and backend on mount
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // Try to get saved profile from localStorage
-        const savedProfile = localStorage.getItem('pulseboard-profile') as 'SASE' | 'IGAMING' | null;
+        // Try to get saved profile from localStorage with new key
+        const savedProfile = localStorage.getItem('pb.activeProfile') as 'SASE' | 'IGAMING' | 'CDP' | null;
 
         // Get current profile from backend
         const response = await api.profile.get();
@@ -36,38 +39,49 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
           setCurrentProfile(backendProfile);
           // Save to localStorage if not already saved
           if (!savedProfile) {
-            localStorage.setItem('pulseboard-profile', backendProfile);
+            localStorage.setItem('pb.activeProfile', backendProfile);
           }
         }
       } catch (error) {
         console.error('Failed to load profile:', error);
         // Fallback to SASE if error
         setCurrentProfile('SASE');
-        localStorage.setItem('pulseboard-profile', 'SASE');
+        localStorage.setItem('pb.activeProfile', 'SASE');
       }
     };
 
     loadProfile();
   }, []);
 
-  const handleProfileToggle = async () => {
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const handleProfileSelect = async (profile: 'SASE' | 'IGAMING' | 'CDP') => {
+    if (profile === currentProfile) return;
+
     setIsLoading(true);
     try {
-      const newProfile = currentProfile === 'SASE' ? 'IGAMING' : 'SASE';
-
       // Update backend
-      await api.profile.set(newProfile);
+      await api.profile.set(profile);
 
       // Update local state
-      setCurrentProfile(newProfile);
+      setCurrentProfile(profile);
 
-      // Persist to localStorage
-      localStorage.setItem('pulseboard-profile', newProfile);
+      // Persist to localStorage with new key
+      localStorage.setItem('pb.activeProfile', profile);
 
       // Notify parent component
-      onProfileChange?.(newProfile);
+      onProfileChange?.(profile);
+
+      setToast({ message: `Switched to ${profile} profile`, type: 'success' });
     } catch (error) {
       console.error('Failed to update profile:', error);
+      setToast({ message: 'Failed to update profile', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -76,11 +90,22 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
   const handleSimulatorStart = async () => {
     setIsLoading(true);
     try {
-      await api.simulator.start();
-      setIsSimulatorRunning(true);
-      onSimulatorStart?.();
+      const params = currentProfile === 'CDP'
+        ? { profile: 'CDP', rps, latenessSec }
+        : undefined;
+
+      const response = await api.simulator.start(params);
+
+      if (response.status === 'started' || response.status === 'already_running') {
+        setIsSimulatorRunning(true);
+        onSimulatorStart?.();
+        setToast({ message: 'Simulator started successfully', type: 'success' });
+      } else if (response.status === 'error') {
+        setToast({ message: response.message || 'Failed to start simulator', type: 'error' });
+      }
     } catch (error) {
       console.error('Failed to start simulator:', error);
+      setToast({ message: 'Failed to start simulator', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -89,11 +114,16 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
   const handleSimulatorStop = async () => {
     setIsLoading(true);
     try {
-      await api.simulator.stop();
-      setIsSimulatorRunning(false);
-      onSimulatorStop?.();
+      const response = await api.simulator.stop();
+
+      if (response.status === 'stopped' || response.status === 'already_stopped') {
+        setIsSimulatorRunning(false);
+        onSimulatorStop?.();
+        setToast({ message: 'Simulator stopped successfully', type: 'success' });
+      }
     } catch (error) {
       console.error('Failed to stop simulator:', error);
+      setToast({ message: 'Failed to stop simulator', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +152,8 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
       alignItems: 'center',
       justifyContent: 'space-between',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      minHeight: '70px'
+      minHeight: currentProfile === 'CDP' ? '120px' : '70px',
+      transition: 'min-height 0.3s ease'
     }}>
       {/* Left: App Name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -139,71 +170,156 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
       {/* Center: Controls */}
       <div style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         gap: '1rem',
-        flex: 1,
-        justifyContent: 'center'
+        flex: 1
       }}>
-        {/* Profile Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.9rem', opacity: 0.9 }}>Profile:</span>
-          <button
-            onClick={handleProfileToggle}
-            disabled={isLoading}
-            style={{
-              backgroundColor: currentProfile === 'SASE' ? '#10b981' : '#f59e0b',
-              color: 'white',
-              border: 'none',
-              padding: '0.4rem 0.8rem',
-              borderRadius: '0.375rem',
-              fontSize: '0.875rem',
-              fontWeight: '600',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.7 : 1,
-              minWidth: '80px'
-            }}
-          >
-            {isLoading ? '...' : currentProfile}
-          </button>
+        {/* Profile Tabs */}
+        <div style={{ display: 'flex', gap: '0.25rem' }}>
+          {(['SASE', 'IGAMING', 'CDP'] as const).map((profile) => (
+            <button
+              key={profile}
+              onClick={() => handleProfileSelect(profile)}
+              disabled={isLoading}
+              style={{
+                backgroundColor: currentProfile === profile ? '#10b981' : 'rgba(255,255,255,0.1)',
+                color: 'white',
+                border: currentProfile === profile ? 'none' : '1px solid rgba(255,255,255,0.3)',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                fontWeight: currentProfile === profile ? '600' : '500',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.7 : 1,
+                minWidth: '80px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {profile}
+            </button>
+          ))}
         </div>
 
-        {/* Simulator Controls */}
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={handleSimulatorStart}
-            disabled={isLoading || isSimulatorRunning}
-            style={{
-              backgroundColor: isSimulatorRunning ? '#6b7280' : '#10b981',
-              color: 'white',
-              border: 'none',
-              padding: '0.4rem 0.8rem',
-              borderRadius: '0.375rem',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: (isLoading || isSimulatorRunning) ? 'not-allowed' : 'pointer',
-              opacity: (isLoading || isSimulatorRunning) ? 0.7 : 1
-            }}
-          >
-            ▶ Start
-          </button>
-          <button
-            onClick={handleSimulatorStop}
-            disabled={isLoading || !isSimulatorRunning}
-            style={{
-              backgroundColor: !isSimulatorRunning ? '#6b7280' : '#ef4444',
-              color: 'white',
-              border: 'none',
-              padding: '0.4rem 0.8rem',
-              borderRadius: '0.375rem',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: (isLoading || !isSimulatorRunning) ? 'not-allowed' : 'pointer',
-              opacity: (isLoading || !isSimulatorRunning) ? 0.7 : 1
-            }}
-          >
-            ⏹ Stop
-          </button>
-        </div>
+        {/* CDP Control Panel */}
+        {currentProfile === 'CDP' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            padding: '0.75rem 1rem',
+            borderRadius: '0.375rem'
+          }}>
+            {/* RPS Control */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', opacity: 0.9 }}>RPS:</label>
+              <input
+                type="range"
+                min="1"
+                max="200"
+                value={rps}
+                onChange={(e) => setRps(Number(e.target.value))}
+                disabled={isLoading}
+                style={{ width: '100px' }}
+              />
+              <span style={{ fontSize: '0.75rem', minWidth: '30px' }}>{rps}</span>
+            </div>
+
+            {/* Lateness Control */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', opacity: 0.9 }}>Lateness:</label>
+              <input
+                type="range"
+                min="0"
+                max="120"
+                value={latenessSec}
+                onChange={(e) => setLatenessSec(Number(e.target.value))}
+                disabled={isLoading}
+                style={{ width: '100px' }}
+              />
+              <span style={{ fontSize: '0.75rem', minWidth: '30px' }}>{latenessSec}s</span>
+            </div>
+
+            {/* Start/Stop Buttons */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '0.5rem' }}>
+              <button
+                onClick={handleSimulatorStart}
+                disabled={isLoading || isSimulatorRunning}
+                style={{
+                  backgroundColor: isSimulatorRunning ? '#6b7280' : '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: (isLoading || isSimulatorRunning) ? 'not-allowed' : 'pointer',
+                  opacity: (isLoading || isSimulatorRunning) ? 0.7 : 1
+                }}
+              >
+                ▶ Start
+              </button>
+              <button
+                onClick={handleSimulatorStop}
+                disabled={isLoading || !isSimulatorRunning}
+                style={{
+                  backgroundColor: !isSimulatorRunning ? '#6b7280' : '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: (isLoading || !isSimulatorRunning) ? 'not-allowed' : 'pointer',
+                  opacity: (isLoading || !isSimulatorRunning) ? 0.7 : 1
+                }}
+              >
+                ⏹ Stop
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Non-CDP Simulator Controls */}
+        {currentProfile !== 'CDP' && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={handleSimulatorStart}
+              disabled={isLoading || isSimulatorRunning}
+              style={{
+                backgroundColor: isSimulatorRunning ? '#6b7280' : '#10b981',
+                color: 'white',
+                border: 'none',
+                padding: '0.4rem 0.8rem',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: (isLoading || isSimulatorRunning) ? 'not-allowed' : 'pointer',
+                opacity: (isLoading || isSimulatorRunning) ? 0.7 : 1
+              }}
+            >
+              ▶ Start
+            </button>
+            <button
+              onClick={handleSimulatorStop}
+              disabled={isLoading || !isSimulatorRunning}
+              style={{
+                backgroundColor: !isSimulatorRunning ? '#6b7280' : '#ef4444',
+                color: 'white',
+                border: 'none',
+                padding: '0.4rem 0.8rem',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: (isLoading || !isSimulatorRunning) ? 'not-allowed' : 'pointer',
+                opacity: (isLoading || !isSimulatorRunning) ? 0.7 : 1
+              }}
+            >
+              ⏹ Stop
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right: Stats Badges */}
@@ -282,6 +398,26 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
           </div>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '5rem',
+          right: '2rem',
+          backgroundColor: toast.type === 'success' ? '#10b981' : '#ef4444',
+          color: 'white',
+          padding: '0.75rem 1.25rem',
+          borderRadius: '0.375rem',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
+          fontSize: '0.875rem',
+          fontWeight: '500',
+          zIndex: 1000,
+          animation: 'slideIn 0.3s ease'
+        }}>
+          {toast.message}
+        </div>
+      )}
     </header>
   );
 }

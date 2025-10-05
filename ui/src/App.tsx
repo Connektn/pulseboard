@@ -9,7 +9,7 @@ function App() {
   const { stats } = useStats(2000); // Poll every 2 seconds
   const { alerts, connected, error } = useSSE({ maxAlerts: 100 });
 
-  const handleProfileChange = (profile: 'SASE' | 'IGAMING') => {
+  const handleProfileChange = (profile: 'SASE' | 'IGAMING' | 'CDP') => {
     console.log('Profile changed to:', profile);
   };
 
