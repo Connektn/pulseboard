@@ -1,0 +1,50 @@
+### CDP SSE Endpoints - Example Requests
+
+### Stream segment events (ENTER/EXIT)
+### This endpoint streams real-time segment membership changes
+### Expected output: JSON events with profileId, segment, action (ENTER/EXIT), ts
+### Heartbeat emitted every 10 seconds
+curl -N http://localhost:8080/sse/cdp/segments
+
+###
+
+### Stream profile summaries (top 20 by lastSeen)
+### This endpoint streams profile summaries throttled to ~1s
+### Expected output: JSON with profileId, plan, country, lastSeen, identifiers, featureUsedCount
+### Only emits when data changes
+curl -N http://localhost:8080/sse/cdp/profiles
+
+###
+
+### Example: Ingest a CDP IDENTIFY event to trigger profile updates
+POST http://localhost:8080/cdp/ingest
+Content-Type: application/json
+
+{
+  "eventId": "evt-123",
+  "ts": "2025-10-05T12:00:00Z",
+  "type": "IDENTIFY",
+  "userId": "u123",
+  "email": "test@example.com",
+  "traits": {
+    "plan": "pro",
+    "country": "US"
+  }
+}
+
+###
+
+### Example: Ingest TRACK events to trigger power_user segment
+POST http://localhost:8080/cdp/ingest
+Content-Type: application/json
+
+{
+  "eventId": "evt-456",
+  "ts": "2025-10-05T12:01:00Z",
+  "type": "TRACK",
+  "userId": "u123",
+  "name": "Feature Used",
+  "properties": {
+    "feature": "dashboard"
+  }
+}
