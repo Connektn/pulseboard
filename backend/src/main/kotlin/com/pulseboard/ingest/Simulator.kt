@@ -262,7 +262,7 @@ class Simulator(
                 ts = applyJitter(Instant.now()),
                 type = com.pulseboard.cdp.model.CdpEventType.IDENTIFY,
                 userId = userId,
-                email = "${userId}@example.com",
+                email = "$userId@example.com",
                 anonymousId = null,
                 name = null,
                 properties = emptyMap(),
@@ -293,8 +293,23 @@ class Simulator(
     }
 
     private suspend fun generateCdpAlias() {
+        // Create realistic ALIAS events: each anonymous ID maps to at most one user ID
+        // Use a deterministic mapping: anon_XXX -> cdp_userXXX (if it exists)
         val anonId = cdpAnonymousIds.random(random)
-        val userId = cdpUsers.random(random)
+
+        // Extract number from anon_XXX
+        val anonNumber = anonId.substringAfter("anon_")
+
+        // Map to user with same number (if it exists in cdpUsers list)
+        // anon_001 -> cdp_user001, anon_007 -> cdp_user007, etc.
+        val userId = "cdp_user$anonNumber"
+
+        // Only create ALIAS if this user exists in our pool
+        if (!cdpUsers.contains(userId)) {
+            // If no matching user, skip this ALIAS
+            return
+        }
+
         val event =
             com.pulseboard.cdp.model.CdpEvent(
                 eventId = generateEventId(allowDuplicate = false), // No duplicates for ALIAS

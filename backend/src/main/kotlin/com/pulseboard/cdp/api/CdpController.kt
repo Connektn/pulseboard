@@ -147,18 +147,28 @@ class CdpController(
             .sortedByDescending { it.lastSeen }
             .take(20)
             .associate { profile ->
-                val summary = ProfileSummary(
-                    profileId = profile.profileId,
-                    plan = profile.traits["plan"] as? String,
-                    country = profile.traits["country"] as? String,
-                    lastSeen = profile.lastSeen,
-                    identifiers = profile.identifiers,
-                    featureUsedCount = rollingCounter.count(
-                        profile.profileId,
-                        "Feature Used",
-                        Duration.ofHours(24)
+                // Strip prefixes from identifiers for UI display
+                val cleanIdentifiers =
+                    com.pulseboard.cdp.model.ProfileIdentifiers(
+                        userIds = profile.identifiers.userIds.map { it.removePrefix("user:") }.toSet(),
+                        emails = profile.identifiers.emails.map { it.removePrefix("email:") }.toSet(),
+                        anonymousIds = profile.identifiers.anonymousIds.map { it.removePrefix("anon:") }.toSet(),
                     )
-                )
+
+                val summary =
+                    ProfileSummary(
+                        profileId = profile.profileId,
+                        plan = profile.traits["plan"] as? String,
+                        country = profile.traits["country"] as? String,
+                        lastSeen = profile.lastSeen,
+                        identifiers = cleanIdentifiers,
+                        featureUsedCount =
+                            rollingCounter.count(
+                                profile.profileId,
+                                "Feature Used",
+                                Duration.ofHours(24),
+                            ),
+                    )
                 profile.profileId to summary
             }
     }
