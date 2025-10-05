@@ -3,8 +3,7 @@ import { useState, useCallback } from 'react'
 import { Header } from './components/Header'
 import { AlertsTable } from './components/AlertsTable'
 import { KPIPanel } from './components/KPIPanel'
-import { ProfilesList } from './components/ProfilesList'
-import { SegmentFeed } from './components/SegmentFeed'
+import { CdpTabs } from './components/CdpTabs'
 import { useStats } from './lib/useStats'
 import { useSSE } from './lib/useSSE'
 
@@ -114,11 +113,8 @@ function App() {
 
         {/* Conditional Content Based on Profile */}
         {currentProfile === 'CDP' ? (
-          /* CDP View */
-          <>
-            <ProfilesList isSimulatorRunning={isSimulatorRunning} />
-            <SegmentFeed isSimulatorRunning={isSimulatorRunning} />
-          </>
+          /* CDP View with Tabs */
+          <CdpTabs isSimulatorRunning={isSimulatorRunning} />
         ) : (
           /* SASE/IGAMING View */
           <>

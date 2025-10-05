@@ -174,9 +174,6 @@ export function SegmentFeed({ isSimulatorRunning }: SegmentFeedProps) {
     <div
       style={{
         backgroundColor: 'white',
-        borderRadius: '0.5rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        border: '1px solid #e2e8f0',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
