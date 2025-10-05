@@ -1,16 +1,20 @@
 import './App.css'
+import { useState } from 'react'
 import { Header } from './components/Header'
 import { AlertsTable } from './components/AlertsTable'
 import { KPIPanel } from './components/KPIPanel'
+import { ProfilesList } from './components/ProfilesList'
 import { useStats } from './lib/useStats'
 import { useSSE } from './lib/useSSE'
 
 function App() {
   const { stats } = useStats(2000); // Poll every 2 seconds
   const { alerts, connected, error } = useSSE({ maxAlerts: 100 });
+  const [currentProfile, setCurrentProfile] = useState<'SASE' | 'IGAMING' | 'CDP'>('SASE');
 
   const handleProfileChange = (profile: 'SASE' | 'IGAMING' | 'CDP') => {
     console.log('Profile changed to:', profile);
+    setCurrentProfile(profile);
   };
 
   const handleSimulatorStart = () => {
@@ -94,11 +98,20 @@ function App() {
           </div>
         </div>
 
-        {/* G4 KPI Panel with Sparkline */}
-        <KPIPanel stats={stats} alerts={alerts} />
+        {/* Conditional Content Based on Profile */}
+        {currentProfile === 'CDP' ? (
+          /* CDP View */
+          <ProfilesList />
+        ) : (
+          /* SASE/IGAMING View */
+          <>
+            {/* G4 KPI Panel with Sparkline */}
+            <KPIPanel stats={stats} alerts={alerts} />
 
-        {/* G3 Live Alerts Table */}
-        <AlertsTable alerts={alerts} />
+            {/* G3 Live Alerts Table */}
+            <AlertsTable alerts={alerts} />
+          </>
+        )}
 
         {/* System Status Footer */}
         <div style={{
