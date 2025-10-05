@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ProfilesList } from './ProfilesList';
 import { SegmentFeed } from './SegmentFeed';
+import { CdpKpiPanel } from './CdpKpiPanel';
 
 type TabType = 'profiles' | 'segments';
 
@@ -12,15 +13,20 @@ export function CdpTabs({ isSimulatorRunning }: CdpTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>('profiles');
 
   return (
-    <div
-      style={{
-        backgroundColor: 'white',
-        borderRadius: '0.5rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-      }}
-    >
+    <>
+      {/* KPI Panel */}
+      <CdpKpiPanel isSimulatorRunning={isSimulatorRunning} />
+
+      {/* Tabs */}
+      <div
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '0.5rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden',
+        }}
+      >
       {/* Tab Headers */}
       <div
         style={{
@@ -71,5 +77,6 @@ export function CdpTabs({ isSimulatorRunning }: CdpTabsProps) {
         {activeTab === 'segments' && <SegmentFeed isSimulatorRunning={isSimulatorRunning} />}
       </div>
     </div>
+    </>
   );
 }
