@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -33,12 +34,36 @@ class SimulatorController(
     }
 
     @PostMapping("/sim/start")
-    suspend fun startSimulation(): Map<String, Any> {
+    suspend fun startSimulation(
+        @RequestParam(required = false) profile: String?,
+        @RequestParam(defaultValue = "10") rps: Int,
+        @RequestParam(defaultValue = "90") latenessSec: Long,
+    ): Map<String, Any> {
+        // Set profile if provided
+        if (profile != null) {
+            val profileEnum =
+                try {
+                    Profile.valueOf(profile.uppercase())
+                } catch (e: IllegalArgumentException) {
+                    return mapOf(
+                        "status" to "error",
+                        "message" to "Invalid profile: $profile. Valid values: SASE, IGAMING, CDP",
+                    )
+                }
+            simulator.setProfile(profileEnum)
+        }
+
+        // Set rate and lateness
+        simulator.setRatePerSecond(rps.toDouble())
+        simulator.setLatenessSec(latenessSec)
+
         return if (simulator.isRunning()) {
             mapOf(
                 "status" to "already_running",
                 "message" to "Simulator is already running",
                 "profile" to simulator.getCurrentProfile().name,
+                "rps" to simulator.getRatePerSecond(),
+                "latenessSec" to simulator.getLatenessSec(),
             )
         } else {
             simulator.start(simulatorScope)
@@ -46,6 +71,8 @@ class SimulatorController(
                 "status" to "started",
                 "message" to "Simulator started successfully",
                 "profile" to simulator.getCurrentProfile().name,
+                "rps" to simulator.getRatePerSecond(),
+                "latenessSec" to simulator.getLatenessSec(),
             )
         }
     }
