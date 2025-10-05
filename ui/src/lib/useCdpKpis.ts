@@ -55,28 +55,51 @@ export function useCdpKpis(enabled: boolean = true): CdpKpis {
     segmentEntersHistory: [],
   });
 
-  // Track profiles seen
+  // Track profiles seen - use a ref to store last processed profiles
+  const lastProfilesRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      lastProfilesRef.current.clear();
+      return;
+    }
 
     profiles.forEach((profile) => {
       const timestamp = new Date(profile.lastSeen).getTime();
-      profileWindow.current.add({
-        key: profile.profileId,
-        timestamp,
-      });
-      eventWindow.current.add({ timestamp });
+      const key = `${profile.profileId}-${profile.lastSeen}`;
+
+      // Only add if we haven't seen this exact profile+timestamp before
+      if (!lastProfilesRef.current.has(key)) {
+        lastProfilesRef.current.add(key);
+
+        profileWindow.current.add({
+          key: profile.profileId,
+          timestamp,
+        });
+        eventWindow.current.add({ timestamp });
+      }
     });
   }, [profiles, enabled]);
 
-  // Track segment ENTER events
+  // Track segment ENTER events - use a ref to store last processed events
+  const lastEventsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      lastEventsRef.current.clear();
+      return;
+    }
 
     segmentEvents.forEach((event) => {
       if (event.action === 'ENTER') {
         const timestamp = new Date(event.ts).getTime();
-        enterWindow.current.add({ timestamp });
+        const key = `${event.profileId}-${event.ts}-${event.segment}`;
+
+        // Only add if we haven't seen this exact event before
+        if (!lastEventsRef.current.has(key)) {
+          lastEventsRef.current.add(key);
+          enterWindow.current.add({ timestamp });
+        }
       }
     });
   }, [segmentEvents, enabled]);
