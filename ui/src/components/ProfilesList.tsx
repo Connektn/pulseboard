@@ -204,6 +204,9 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
         style={{
           backgroundColor: 'white',
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '600px',
         }}
       >
         {/* Header */}
@@ -242,7 +245,7 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
         </div>
 
         {/* Table */}
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ flex: 1, overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
