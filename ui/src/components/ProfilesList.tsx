@@ -113,6 +113,9 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
   const [displayedProfiles, setDisplayedProfiles] = useState<ProfileSummary[]>([]);
 
   useEffect(() => {
+    // Set initial profiles immediately
+    setDisplayedProfiles(profiles);
+
     const interval = setInterval(() => {
       setDisplayedProfiles(profiles);
     }, 2000); // Throttle to 2s
