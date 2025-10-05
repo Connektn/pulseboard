@@ -126,8 +126,27 @@ docker exec -it redpanda rpk topic consume events --print-headers
 
 ## Architecture
 
-Pulseboard MVP implements:
-- Real-time event simulator → sliding windows → rule engine → SSE → minimal React UI with alerts and sparkline
+Pulseboard implements three main profiles:
+
+1. **SASE** - Secure Access Service Edge anomaly detection
+2. **IGAMING** - Online gaming fraud detection
+3. **CDP** - Customer Data Platform with real-time segmentation
+
+### CDP Module
+
+The CDP (Customer Data Platform) module demonstrates advanced stream processing concepts including:
+- Event-time processing with late event handling
+- Last-Write-Wins conflict resolution
+- Sliding window aggregations
+- Real-time profile unification
+- Dynamic customer segmentation
+
+**[→ Full CDP Documentation](docs/cdp/README.md)**
+
+## Documentation
+
+- **[TICKETS.md](docs/TICKETS.md)** - Development roadmap and task breakdown
+- **[CDP Module](docs/cdp/README.md)** - Customer Data Platform architecture and concepts
 
 ## Contributing
 
