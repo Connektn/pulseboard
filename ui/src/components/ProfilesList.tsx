@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useCdpProfiles, type ProfileSummary } from '../lib/useCdpProfiles';
 import { ProfileDrawer } from './ProfileDrawer';
@@ -109,6 +109,17 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
   const { profiles, connected, error } = useCdpProfiles(isSimulatorRunning);
   const [selectedProfile, setSelectedProfile] = useState<ProfileSummary | null>(null);
 
+  // Throttled profiles: update at most once per 2 seconds to avoid scroll jank
+  const [displayedProfiles, setDisplayedProfiles] = useState<ProfileSummary[]>([]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDisplayedProfiles(profiles);
+    }, 2000); // Throttle to 2s
+
+    return () => clearInterval(interval);
+  }, [profiles]);
+
   // Simulator not running state
   if (!isSimulatorRunning) {
     return (
@@ -134,7 +145,7 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
   }
 
   // Loading state
-  if (!connected && profiles.length === 0) {
+  if (!connected && displayedProfiles.length === 0) {
     return (
       <div
         style={{
@@ -156,7 +167,7 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
   }
 
   // Empty state
-  if (profiles.length === 0) {
+  if (displayedProfiles.length === 0) {
     return (
       <div
         style={{
@@ -225,7 +236,7 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
               }}
             />
             <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-              {profiles.length} {profiles.length === 1 ? 'profile' : 'profiles'}
+              {displayedProfiles.length} {displayedProfiles.length === 1 ? 'profile' : 'profiles'}
             </span>
           </div>
         </div>
@@ -317,7 +328,7 @@ export function ProfilesList({ isSimulatorRunning }: { isSimulatorRunning: boole
               </tr>
             </thead>
             <tbody>
-              {profiles.map((profile) => (
+              {displayedProfiles.map((profile) => (
                 <ProfileRow
                   key={profile.profileId}
                   profile={profile}
