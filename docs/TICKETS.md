@@ -322,7 +322,7 @@ DoD:
 
 ## K1. CDP models & ingest API
 
-Goal: Define CDP event/profile models and expose POST /cdp/ingest.
+Goal: Define CDP event/profile models and expose POST /cdp/ingest.[TICKETS.md](TICKETS.md)
 
 Deliverables:
 - `backend/src/main/kotlin/cdp/model/CdpEvent.kt`:
@@ -447,3 +447,61 @@ Deliverables:
 
 DoD:
 - `curl` to both endpoints shows live JSON lines while processor runs.
+
+# EPIC L — CDP Simulator & UI
+
+## L1. Simulator: CDP mode
+Goal: Generate realistic CDP traffic with out-of-order and aliasing.
+Deliverables:
+- Extend simulator with CDP profile:
+  - Emit IDENTIFY (traits: plan in {basic, pro}, country) on random cadence.
+  - Emit TRACK events for names: Feature Used, Sign In, Checkout.
+  - Emit ALIAS linking anon → userId after delay (simulate login).
+  - Random lateness: shuffle ts within ±90s; some duplicates for dedup test.
+- Controls: `POST /sim/start?profile=CDP&rps=...&latenessSec=....`
+
+DoD:
+- Starting CDP sim drives profile merges + segment enters.
+
+## L2. UI: Add CDP tab & controls
+
+Goal: Extend shell with third tab and sim controls.
+
+Deliverables:
+- Header toggle: SASE | IGAMING | CDP (persist in localStorage).
+- CDP control panel: start/stop, RPS slider, lateness slider.
+
+DoD:
+- Switching to CDP shows the CDP panel; controls call backend endpoints.
+
+## L3. UI: Live profiles list
+Goal: Show top 20 live profiles with key traits.
+
+Deliverables:
+- Subscribe to `/sse/cdp/profiles`.
+- Table columns: `Profile`, `Plan`, `Country`, `Last Seen`, `Identifiers (u/e/a)`, `Feature Used (24h)`.
+- Row click opens drawer with recent events timeline (optional minimal).
+
+DoD:
+- List updates in real time without jank; drawer shows a mock timeline if not yet wired.
+
+## L4. UI: Segment activity feed
+Goal: Real-time segment enter/exit stream.
+
+Deliverables:
+- Subscribe to `/sse/cdp/segments`.
+- Feed entries: “{profileId} entered power_user at 14:05:12”.
+- Filters (checkboxes): power_user, pro_plan, reengage.
+
+DoD:
+- With simulator running, feed scrolls with new entries; filters work client-side.
+
+## L5. UI: KPIs & sparkline (CDP)
+Goal: Visual punch for demo.
+
+Deliverables:
+- KPIs: profiles active last 5m, events/min, segment enters/min.
+- Sparkline (Chart.js CDN): segment enters/min, last 2 minutes.
+
+DoD:
+- KPIs update once/sec; sparkline smoothly shifts.
