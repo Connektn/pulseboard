@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ProfileSummary } from '../lib/useCdpProfiles';
+import type { ProfileSummary } from '../lib/useCdpProfiles';
 
 interface ProfileDrawerProps {
   profile: ProfileSummary | null;

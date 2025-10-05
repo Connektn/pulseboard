@@ -1,6 +1,6 @@
 import { useState, memo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { ProfileSummary, useCdpProfiles } from '../lib/useCdpProfiles';
+import { useCdpProfiles, type ProfileSummary } from '../lib/useCdpProfiles';
 import { ProfileDrawer } from './ProfileDrawer';
 
 // Memoized row component to prevent unnecessary re-renders
