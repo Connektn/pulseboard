@@ -106,19 +106,22 @@ export function useCdpKpis(enabled: boolean = true): CdpKpis {
       // Update sparkline data (keep last 120 points = 2 minutes)
       setSparklineData((prev) => {
         const newData = [...prev, segmentEntersPerMinute];
-        return newData.slice(-120); // Keep last 120 points
-      });
+        const updated = newData.slice(-120); // Keep last 120 points
 
-      setKpis({
-        activeProfiles,
-        eventsPerMinute,
-        segmentEntersPerMinute,
-        segmentEntersHistory: sparklineData,
+        // Update KPIs with the new sparkline data
+        setKpis({
+          activeProfiles,
+          eventsPerMinute,
+          segmentEntersPerMinute,
+          segmentEntersHistory: updated,
+        });
+
+        return updated;
       });
     }, 1000); // Update every 1s
 
     return () => clearInterval(interval);
-  }, [enabled, sparklineData]);
+  }, [enabled]);
 
   return kpis;
 }
