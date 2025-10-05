@@ -15,7 +15,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -45,7 +44,7 @@ class CdpPipeline(
     private val profileStore: ProfileStore,
     private val rollingCounter: RollingCounter,
     private val segmentEngine: SegmentEngine,
-    private val meterRegistry: MeterRegistry
+    private val meterRegistry: MeterRegistry,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -128,11 +127,14 @@ class CdpPipeline(
         val canonicalId = identityGraph.canonicalIdFor(identifiers.toList())
 
         // Merge identifiers
-        profileStore.mergeIdentifiers(canonicalId, ProfileIdentifiers(
-            userIds = identifiers.filter { it.startsWith("user:") }.toSet(),
-            emails = identifiers.filter { it.startsWith("email:") }.toSet(),
-            anonymousIds = identifiers.filter { it.startsWith("anon:") }.toSet()
-        ))
+        profileStore.mergeIdentifiers(
+            canonicalId,
+            ProfileIdentifiers(
+                userIds = identifiers.filter { it.startsWith("user:") }.toSet(),
+                emails = identifiers.filter { it.startsWith("email:") }.toSet(),
+                anonymousIds = identifiers.filter { it.startsWith("anon:") }.toSet(),
+            ),
+        )
 
         // Merge traits (LWW)
         if (event.traits.isNotEmpty()) {
@@ -156,8 +158,12 @@ class CdpPipeline(
         // Update profile with new segments
         profileStore.updateSegments(canonicalId, newSegments)
 
-        logger.debug("Completed processing event: eventId={}, profileId={}, segments={}",
-            event.eventId, canonicalId, newSegments)
+        logger.debug(
+            "Completed processing event: eventId={}, profileId={}, segments={}",
+            event.eventId,
+            canonicalId,
+            newSegments,
+        )
     }
 
     /**

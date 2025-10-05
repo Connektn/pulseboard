@@ -16,5 +16,5 @@ data class ProfileSummary(
     val country: String?,
     val lastSeen: Instant,
     val identifiers: ProfileIdentifiers,
-    val featureUsedCount: Long
+    val featureUsedCount: Long,
 )

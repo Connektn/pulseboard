@@ -44,11 +44,12 @@ class ProfileStoreTest {
         val profileId = "profile-1"
 
         // First merge
-        val identifiers1 = ProfileIdentifiers(
-            userIds = setOf("user:123"),
-            emails = setOf("email:test@example.com"),
-            anonymousIds = setOf("anon:abc")
-        )
+        val identifiers1 =
+            ProfileIdentifiers(
+                userIds = setOf("user:123"),
+                emails = setOf("email:test@example.com"),
+                anonymousIds = setOf("anon:abc"),
+            )
         store.mergeIdentifiers(profileId, identifiers1)
 
         var profile = store.get(profileId)
@@ -58,11 +59,12 @@ class ProfileStoreTest {
         assertEquals(1, profile.identifiers.anonymousIds.size)
 
         // Second merge (union)
-        val identifiers2 = ProfileIdentifiers(
-            userIds = setOf("user:456"),
-            emails = setOf("email:test2@example.com"),
-            anonymousIds = emptySet()
-        )
+        val identifiers2 =
+            ProfileIdentifiers(
+                userIds = setOf("user:456"),
+                emails = setOf("email:test2@example.com"),
+                anonymousIds = emptySet(),
+            )
         store.mergeIdentifiers(profileId, identifiers2)
 
         profile = store.get(profileId)

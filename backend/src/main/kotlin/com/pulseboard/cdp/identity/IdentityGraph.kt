@@ -47,7 +47,10 @@ class IdentityGraph {
      * @param a First identifier
      * @param b Second identifier
      */
-    fun union(a: String, b: String) {
+    fun union(
+        a: String,
+        b: String,
+    ) {
         val rootA = find(a)
         val rootB = find(b)
 
@@ -113,8 +116,8 @@ class IdentityGraph {
         // Already has a prefix
         if (trimmed.startsWith("user:") ||
             trimmed.startsWith("email:") ||
-            trimmed.startsWith("anon:")) {
-
+            trimmed.startsWith("anon:")
+        ) {
             // Extract prefix and value
             val parts = trimmed.split(":", limit = 2)
             if (parts.size != 2) {
@@ -138,7 +141,7 @@ class IdentityGraph {
             trimmed.contains("@") -> "email:${trimmed.lowercase()}"
             // Anonymous ID format (contains "anon" or starts with "anon-")
             trimmed.contains("anon", ignoreCase = true) ||
-            trimmed.startsWith("anon-", ignoreCase = true) -> "anon:$trimmed"
+                trimmed.startsWith("anon-", ignoreCase = true) -> "anon:$trimmed"
             // Default to user ID
             else -> "user:$trimmed"
         }

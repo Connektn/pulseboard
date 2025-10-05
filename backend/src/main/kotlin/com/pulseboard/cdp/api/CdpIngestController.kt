@@ -18,10 +18,11 @@ import org.springframework.web.bind.annotation.RestController
  */
 @Component
 class CdpEventBus {
-    private val _events = MutableSharedFlow<CdpEvent>(
-        replay = 0,
-        extraBufferCapacity = 1000
-    )
+    private val _events =
+        MutableSharedFlow<CdpEvent>(
+            replay = 0,
+            extraBufferCapacity = 1000,
+        )
     val events: SharedFlow<CdpEvent> = _events.asSharedFlow()
 
     suspend fun publish(event: CdpEvent) {
@@ -35,12 +36,14 @@ class CdpEventBus {
 @RestController
 @RequestMapping("/cdp")
 class CdpIngestController(
-    private val eventBus: CdpEventBus
+    private val eventBus: CdpEventBus,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @PostMapping("/ingest")
-    suspend fun ingest(@RequestBody event: CdpEvent): ResponseEntity<Map<String, String>> {
+    suspend fun ingest(
+        @RequestBody event: CdpEvent,
+    ): ResponseEntity<Map<String, String>> {
         return try {
             // Validate the event
             event.validate()

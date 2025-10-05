@@ -3,7 +3,6 @@ package com.pulseboard.cdp.api
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.pulseboard.cdp.model.CdpProfile
 import com.pulseboard.cdp.model.ProfileIdentifiers
-import com.pulseboard.cdp.model.SegmentAction
 import com.pulseboard.cdp.model.SegmentEvent
 import com.pulseboard.cdp.segments.SegmentEngine
 import com.pulseboard.cdp.store.ProfileStore
@@ -37,12 +36,13 @@ class CdpControllerTest {
 
         every { mockSegmentEngine.segmentEvents } returns segmentEventFlow
 
-        cdpController = CdpController(
-            mockSegmentEngine,
-            mockProfileStore,
-            mockRollingCounter,
-            objectMapper
-        )
+        cdpController =
+            CdpController(
+                mockSegmentEngine,
+                mockProfileStore,
+                mockRollingCounter,
+                objectMapper,
+            )
         cdpController.enableHeartbeat = false // Disable heartbeat for tests
 
         webTestClient = WebTestClient.bindToController(cdpController).build()
@@ -101,18 +101,20 @@ class CdpControllerTest {
     @Test
     fun `profiles endpoint should emit profile summaries`() {
         val now = Instant.now()
-        val profile1 = CdpProfile(
-            profileId = "profile-1",
-            identifiers = ProfileIdentifiers(
-                userIds = setOf("user:u123"),
-                emails = setOf("email:test@example.com"),
-                anonymousIds = emptySet()
-            ),
-            traits = mapOf("plan" to "pro", "country" to "US"),
-            counters = emptyMap(),
-            segments = emptySet(),
-            lastSeen = now
-        )
+        val profile1 =
+            CdpProfile(
+                profileId = "profile-1",
+                identifiers =
+                    ProfileIdentifiers(
+                        userIds = setOf("user:u123"),
+                        emails = setOf("email:test@example.com"),
+                        anonymousIds = emptySet(),
+                    ),
+                traits = mapOf("plan" to "pro", "country" to "US"),
+                counters = emptyMap(),
+                segments = emptySet(),
+                lastSeen = now,
+            )
 
         every { mockProfileStore.getAll() } returns mapOf("profile-1" to profile1)
         every { mockRollingCounter.count("profile-1", "Feature Used", Duration.ofHours(24)) } returns 10L
@@ -137,17 +139,19 @@ class CdpControllerTest {
     @Test
     fun `profiles endpoint should respect top 20 limit`() {
         val now = Instant.now()
-        val profiles = (1..30).associate { i ->
-            val profileId = "profile-$i"
-            profileId to CdpProfile(
-                profileId = profileId,
-                identifiers = ProfileIdentifiers(),
-                traits = mapOf("plan" to "basic"),
-                counters = emptyMap(),
-                segments = emptySet(),
-                lastSeen = now.minusSeconds(i.toLong())
-            )
-        }
+        val profiles =
+            (1..30).associate { i ->
+                val profileId = "profile-$i"
+                profileId to
+                    CdpProfile(
+                        profileId = profileId,
+                        identifiers = ProfileIdentifiers(),
+                        traits = mapOf("plan" to "basic"),
+                        counters = emptyMap(),
+                        segments = emptySet(),
+                        lastSeen = now.minusSeconds(i.toLong()),
+                    )
+            }
 
         every { mockProfileStore.getAll() } returns profiles
         every { mockRollingCounter.count(any(), "Feature Used", Duration.ofHours(24)) } returns 0L
@@ -170,27 +174,30 @@ class CdpControllerTest {
     @Test
     fun `profiles endpoint should sort by lastSeen descending`() {
         val now = Instant.now()
-        val profile1 = CdpProfile(
-            profileId = "profile-1",
-            identifiers = ProfileIdentifiers(),
-            traits = mapOf("plan" to "basic"),
-            counters = emptyMap(),
-            segments = emptySet(),
-            lastSeen = now.minusSeconds(10) // Older
-        )
-        val profile2 = CdpProfile(
-            profileId = "profile-2",
-            identifiers = ProfileIdentifiers(),
-            traits = mapOf("plan" to "pro"),
-            counters = emptyMap(),
-            segments = emptySet(),
-            lastSeen = now // Newer
-        )
+        val profile1 =
+            CdpProfile(
+                profileId = "profile-1",
+                identifiers = ProfileIdentifiers(),
+                traits = mapOf("plan" to "basic"),
+                counters = emptyMap(),
+                segments = emptySet(),
+                lastSeen = now.minusSeconds(10), // Older
+            )
+        val profile2 =
+            CdpProfile(
+                profileId = "profile-2",
+                identifiers = ProfileIdentifiers(),
+                traits = mapOf("plan" to "pro"),
+                counters = emptyMap(),
+                segments = emptySet(),
+                lastSeen = now, // Newer
+            )
 
-        every { mockProfileStore.getAll() } returns mapOf(
-            "profile-1" to profile1,
-            "profile-2" to profile2
-        )
+        every { mockProfileStore.getAll() } returns
+            mapOf(
+                "profile-1" to profile1,
+                "profile-2" to profile2,
+            )
         every { mockRollingCounter.count(any(), "Feature Used", Duration.ofHours(24)) } returns 0L
 
         val flux = cdpController.streamProfiles()
@@ -213,14 +220,15 @@ class CdpControllerTest {
     @Test
     fun `profiles endpoint should not re-emit unchanged summaries`() {
         val now = Instant.now()
-        val profile1 = CdpProfile(
-            profileId = "profile-1",
-            identifiers = ProfileIdentifiers(),
-            traits = mapOf("plan" to "basic"),
-            counters = emptyMap(),
-            segments = emptySet(),
-            lastSeen = now
-        )
+        val profile1 =
+            CdpProfile(
+                profileId = "profile-1",
+                identifiers = ProfileIdentifiers(),
+                traits = mapOf("plan" to "basic"),
+                counters = emptyMap(),
+                segments = emptySet(),
+                lastSeen = now,
+            )
 
         every { mockProfileStore.getAll() } returns mapOf("profile-1" to profile1)
         every { mockRollingCounter.count(any(), "Feature Used", Duration.ofHours(24)) } returns 5L
@@ -245,12 +253,13 @@ class CdpControllerTest {
         val mockObjectMapper = mockk<ObjectMapper>()
         every { mockObjectMapper.writeValueAsString(any()) } throws RuntimeException("Serialization error")
 
-        val controllerWithBadMapper = CdpController(
-            mockSegmentEngine,
-            mockProfileStore,
-            mockRollingCounter,
-            mockObjectMapper
-        )
+        val controllerWithBadMapper =
+            CdpController(
+                mockSegmentEngine,
+                mockProfileStore,
+                mockRollingCounter,
+                mockObjectMapper,
+            )
         controllerWithBadMapper.enableHeartbeat = false
         val flux = controllerWithBadMapper.streamSegments()
 

@@ -3,16 +3,11 @@ package com.pulseboard.cdp.segments
 import com.pulseboard.cdp.model.CdpProfile
 import com.pulseboard.cdp.model.ProfileIdentifiers
 import com.pulseboard.cdp.model.SegmentAction
-import com.pulseboard.cdp.model.SegmentEvent
 import com.pulseboard.cdp.store.RollingCounter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
@@ -31,12 +26,13 @@ class SegmentEngineTest {
     @BeforeEach
     fun setup() {
         rollingCounter = RollingCounter()
-        engine = SegmentEngine(
-            rollingCounter = rollingCounter,
-            reengageInactivityThreshold = Duration.ofMinutes(10),
-            powerUserThreshold = 5,
-            powerUserWindow = Duration.ofHours(24)
-        )
+        engine =
+            SegmentEngine(
+                rollingCounter = rollingCounter,
+                reengageInactivityThreshold = Duration.ofMinutes(10),
+                powerUserThreshold = 5,
+                powerUserWindow = Duration.ofHours(24),
+            )
     }
 
     // === Rule: power_user ===
@@ -109,11 +105,12 @@ class SegmentEngineTest {
 
     @Test
     fun `pro_plan rule should match when trait plan equals pro`() {
-        val profile = createProfile(
-            "profile-1",
-            traits = mapOf("plan" to "pro"),
-            lastSeen = Instant.now()
-        )
+        val profile =
+            createProfile(
+                "profile-1",
+                traits = mapOf("plan" to "pro"),
+                lastSeen = Instant.now(),
+            )
 
         val segments = engine.evaluate(profile)
 
@@ -122,11 +119,12 @@ class SegmentEngineTest {
 
     @Test
     fun `pro_plan rule should not match with different plan`() {
-        val profile = createProfile(
-            "profile-1",
-            traits = mapOf("plan" to "basic"),
-            lastSeen = Instant.now()
-        )
+        val profile =
+            createProfile(
+                "profile-1",
+                traits = mapOf("plan" to "basic"),
+                lastSeen = Instant.now(),
+            )
 
         val segments = engine.evaluate(profile)
 
@@ -135,11 +133,12 @@ class SegmentEngineTest {
 
     @Test
     fun `pro_plan rule should not match when trait missing`() {
-        val profile = createProfile(
-            "profile-1",
-            traits = emptyMap(),
-            lastSeen = Instant.now()
-        )
+        val profile =
+            createProfile(
+                "profile-1",
+                traits = emptyMap(),
+                lastSeen = Instant.now(),
+            )
 
         val segments = engine.evaluate(profile)
 
@@ -197,196 +196,215 @@ class SegmentEngineTest {
     // === ENTER/EXIT Transition Tests (DoD Requirement) ===
 
     @Test
-    fun `should emit ENTER event when profile joins segment`() = runBlocking {
-        val profileId = "profile-1"
-        val now = Instant.now()
+    fun `should emit ENTER event when profile joins segment`() =
+        runBlocking {
+            val profileId = "profile-1"
+            val now = Instant.now()
 
-        // Initially no segments
-        val profile1 = createProfile(profileId, lastSeen = now)
-        engine.evaluateAndEmit(profile1)
+            // Initially no segments
+            val profile1 = createProfile(profileId, lastSeen = now)
+            engine.evaluateAndEmit(profile1)
 
-        // Add feature events to trigger power_user
-        repeat(5) {
-            rollingCounter.append(profileId, "Feature Used", now)
-        }
-
-        // Collect first event (ENTER)
-        val event = withTimeout(1000) {
-            // Start collecting before emitting
-            val deferred = async {
-                engine.segmentEvents.first()
+            // Add feature events to trigger power_user
+            repeat(5) {
+                rollingCounter.append(profileId, "Feature Used", now)
             }
 
-            // Yield to ensure collector is subscribed
-            yield()
+            // Collect first event (ENTER)
+            val event =
+                withTimeout(1000) {
+                    // Start collecting before emitting
+                    val deferred =
+                        async {
+                            engine.segmentEvents.first()
+                        }
 
-            // Update profile (this will emit the event)
-            val profile2 = createProfile(profileId, lastSeen = now)
-            engine.evaluateAndEmit(profile2)
+                    // Yield to ensure collector is subscribed
+                    yield()
 
-            deferred.await()
+                    // Update profile (this will emit the event)
+                    val profile2 = createProfile(profileId, lastSeen = now)
+                    engine.evaluateAndEmit(profile2)
+
+                    deferred.await()
+                }
+
+            // Verify ENTER event emitted
+            assertEquals(profileId, event.profileId)
+            assertEquals("power_user", event.segment)
+            assertEquals(SegmentAction.ENTER, event.action)
         }
 
-        // Verify ENTER event emitted
-        assertEquals(profileId, event.profileId)
-        assertEquals("power_user", event.segment)
-        assertEquals(SegmentAction.ENTER, event.action)
-    }
+    @Test
+    fun `should emit EXIT event when profile leaves segment`() =
+        runBlocking {
+            val profileId = "profile-1"
+            val now = Instant.now()
+
+            // Start with pro_plan segment
+            val profile1 =
+                createProfile(
+                    profileId,
+                    traits = mapOf("plan" to "pro"),
+                    lastSeen = now,
+                )
+            engine.evaluateAndEmit(profile1)
+
+            // Collect first event (EXIT)
+            val event =
+                withTimeout(1000) {
+                    // Start collecting before emitting
+                    val deferred =
+                        async {
+                            engine.segmentEvents.first()
+                        }
+
+                    // Yield to ensure collector is subscribed
+                    yield()
+
+                    // Remove pro plan (this will emit the event)
+                    val profile2 =
+                        createProfile(
+                            profileId,
+                            traits = mapOf("plan" to "basic"),
+                            lastSeen = now,
+                        )
+                    engine.evaluateAndEmit(profile2)
+
+                    deferred.await()
+                }
+
+            // Verify EXIT event emitted
+            assertEquals(profileId, event.profileId)
+            assertEquals("pro_plan", event.segment)
+            assertEquals(SegmentAction.EXIT, event.action)
+        }
 
     @Test
-    fun `should emit EXIT event when profile leaves segment`() = runBlocking {
-        val profileId = "profile-1"
-        val now = Instant.now()
+    fun `should emit both ENTER and EXIT events for simultaneous changes`() =
+        runBlocking {
+            val profileId = "profile-1"
+            val now = Instant.now()
 
-        // Start with pro_plan segment
-        val profile1 = createProfile(
-            profileId,
-            traits = mapOf("plan" to "pro"),
-            lastSeen = now
-        )
-        engine.evaluateAndEmit(profile1)
+            // Start with pro_plan only
+            val profile1 =
+                createProfile(
+                    profileId,
+                    traits = mapOf("plan" to "pro"),
+                    lastSeen = now,
+                )
+            engine.evaluateAndEmit(profile1)
 
-        // Collect first event (EXIT)
-        val event = withTimeout(1000) {
-            // Start collecting before emitting
-            val deferred = async {
-                engine.segmentEvents.first()
+            // Add feature events for power_user, remove pro_plan
+            repeat(5) {
+                rollingCounter.append(profileId, "Feature Used", now)
             }
 
-            // Yield to ensure collector is subscribed
-            yield()
+            // Collect both events (ENTER and EXIT)
+            val events =
+                withTimeout(1000) {
+                    // Start collecting before emitting
+                    val deferred =
+                        async {
+                            engine.segmentEvents.take(2).toList()
+                        }
 
-            // Remove pro plan (this will emit the event)
-            val profile2 = createProfile(
-                profileId,
-                traits = mapOf("plan" to "basic"),
-                lastSeen = now
-            )
-            engine.evaluateAndEmit(profile2)
+                    // Yield to ensure collector is subscribed
+                    yield()
 
-            deferred.await()
+                    // Update profile (this will emit both events)
+                    val profile2 =
+                        createProfile(
+                            profileId,
+                            traits = mapOf("plan" to "basic"),
+                            lastSeen = now,
+                        )
+                    engine.evaluateAndEmit(profile2)
+
+                    deferred.await()
+                }
+
+            // Should have EXIT pro_plan and ENTER power_user
+            assertEquals(2, events.size)
+
+            val enterEvent = events.find { it.action == SegmentAction.ENTER }
+            val exitEvent = events.find { it.action == SegmentAction.EXIT }
+
+            assertEquals("power_user", enterEvent?.segment)
+            assertEquals("pro_plan", exitEvent?.segment)
         }
-
-        // Verify EXIT event emitted
-        assertEquals(profileId, event.profileId)
-        assertEquals("pro_plan", event.segment)
-        assertEquals(SegmentAction.EXIT, event.action)
-    }
 
     @Test
-    fun `should emit both ENTER and EXIT events for simultaneous changes`() = runBlocking {
-        val profileId = "profile-1"
-        val now = Instant.now()
+    fun `should not emit events when segments unchanged`() =
+        runBlocking {
+            val profileId = "profile-1"
+            val now = Instant.now()
 
-        // Start with pro_plan only
-        val profile1 = createProfile(
-            profileId,
-            traits = mapOf("plan" to "pro"),
-            lastSeen = now
-        )
-        engine.evaluateAndEmit(profile1)
+            // Start with pro_plan
+            val profile1 =
+                createProfile(
+                    profileId,
+                    traits = mapOf("plan" to "pro"),
+                    lastSeen = now,
+                )
+            engine.evaluateAndEmit(profile1)
 
-        // Add feature events for power_user, remove pro_plan
-        repeat(5) {
-            rollingCounter.append(profileId, "Feature Used", now)
+            // Keep same segments
+            val profile2 =
+                createProfile(
+                    profileId,
+                    traits = mapOf("plan" to "pro"),
+                    lastSeen = now,
+                )
+
+            val segments = engine.evaluateAndEmit(profile2)
+
+            // No events should be emitted (segments unchanged)
+            assertTrue(segments.contains("pro_plan"))
         }
-
-        // Collect both events (ENTER and EXIT)
-        val events = withTimeout(1000) {
-            // Start collecting before emitting
-            val deferred = async {
-                engine.segmentEvents.take(2).toList()
-            }
-
-            // Yield to ensure collector is subscribed
-            yield()
-
-            // Update profile (this will emit both events)
-            val profile2 = createProfile(
-                profileId,
-                traits = mapOf("plan" to "basic"),
-                lastSeen = now
-            )
-            engine.evaluateAndEmit(profile2)
-
-            deferred.await()
-        }
-
-        // Should have EXIT pro_plan and ENTER power_user
-        assertEquals(2, events.size)
-
-        val enterEvent = events.find { it.action == SegmentAction.ENTER }
-        val exitEvent = events.find { it.action == SegmentAction.EXIT }
-
-        assertEquals("power_user", enterEvent?.segment)
-        assertEquals("pro_plan", exitEvent?.segment)
-    }
-
-    @Test
-    fun `should not emit events when segments unchanged`() = runBlocking {
-        val profileId = "profile-1"
-        val now = Instant.now()
-
-        // Start with pro_plan
-        val profile1 = createProfile(
-            profileId,
-            traits = mapOf("plan" to "pro"),
-            lastSeen = now
-        )
-        engine.evaluateAndEmit(profile1)
-
-        // Keep same segments
-        val profile2 = createProfile(
-            profileId,
-            traits = mapOf("plan" to "pro"),
-            lastSeen = now
-        )
-
-        val segments = engine.evaluateAndEmit(profile2)
-
-        // No events should be emitted (segments unchanged)
-        assertTrue(segments.contains("pro_plan"))
-    }
 
     // === Boundary Condition Tests (DoD Requirement) ===
 
     @Test
-    fun `power_user should transition at exactly 5 events`() = runBlocking {
-        val profileId = "profile-1"
-        val now = Instant.now()
+    fun `power_user should transition at exactly 5 events`() =
+        runBlocking {
+            val profileId = "profile-1"
+            val now = Instant.now()
 
-        // Start with 4 events (not power_user)
-        repeat(4) {
-            rollingCounter.append(profileId, "Feature Used", now)
-        }
-
-        val profile1 = createProfile(profileId, lastSeen = now)
-        val segments1 = engine.evaluateAndEmit(profile1)
-        assertFalse(segments1.contains("power_user"))
-
-        // Add 5th event (should cross threshold)
-        rollingCounter.append(profileId, "Feature Used", now)
-
-        // Collect ENTER event
-        val event = withTimeout(1000) {
-            // Start collecting before emitting
-            val deferred = async {
-                engine.segmentEvents.first()
+            // Start with 4 events (not power_user)
+            repeat(4) {
+                rollingCounter.append(profileId, "Feature Used", now)
             }
 
-            // Yield to ensure collector is subscribed
-            yield()
+            val profile1 = createProfile(profileId, lastSeen = now)
+            val segments1 = engine.evaluateAndEmit(profile1)
+            assertFalse(segments1.contains("power_user"))
 
-            // Update profile (this will emit the event)
-            val profile2 = createProfile(profileId, lastSeen = now)
-            val segments2 = engine.evaluateAndEmit(profile2)
-            assertTrue(segments2.contains("power_user"))
+            // Add 5th event (should cross threshold)
+            rollingCounter.append(profileId, "Feature Used", now)
 
-            deferred.await()
+            // Collect ENTER event
+            val event =
+                withTimeout(1000) {
+                    // Start collecting before emitting
+                    val deferred =
+                        async {
+                            engine.segmentEvents.first()
+                        }
+
+                    // Yield to ensure collector is subscribed
+                    yield()
+
+                    // Update profile (this will emit the event)
+                    val profile2 = createProfile(profileId, lastSeen = now)
+                    val segments2 = engine.evaluateAndEmit(profile2)
+                    assertTrue(segments2.contains("power_user"))
+
+                    deferred.await()
+                }
+
+            assertEquals(SegmentAction.ENTER, event.action)
         }
-
-        assertEquals(SegmentAction.ENTER, event.action)
-    }
 
     @Test
     fun `reengage should transition at exactly 10 minutes plus 1 second`() {
@@ -399,10 +417,11 @@ class SegmentEngineTest {
         assertFalse(segments1.contains("reengage"))
 
         // Well over 10 minutes - SHOULD be reengage
-        val profile2 = createProfile(
-            profileId,
-            lastSeen = now.minus(Duration.ofMinutes(11))
-        )
+        val profile2 =
+            createProfile(
+                profileId,
+                lastSeen = now.minus(Duration.ofMinutes(11)),
+            )
         val segments2 = engine.evaluate(profile2)
         assertTrue(segments2.contains("reengage"))
     }
@@ -419,11 +438,12 @@ class SegmentEngineTest {
             rollingCounter.append(profileId, "Feature Used", now)
         }
 
-        val profile = createProfile(
-            profileId,
-            traits = mapOf("plan" to "pro"),
-            lastSeen = now.minus(Duration.ofMinutes(15))
-        )
+        val profile =
+            createProfile(
+                profileId,
+                traits = mapOf("plan" to "pro"),
+                lastSeen = now.minus(Duration.ofMinutes(15)),
+            )
 
         val segments = engine.evaluate(profile)
 
@@ -435,11 +455,12 @@ class SegmentEngineTest {
 
     @Test
     fun `profile can have no segments`() {
-        val profile = createProfile(
-            "profile-1",
-            traits = mapOf("plan" to "basic"),
-            lastSeen = Instant.now()
-        )
+        val profile =
+            createProfile(
+                "profile-1",
+                traits = mapOf("plan" to "basic"),
+                lastSeen = Instant.now(),
+            )
 
         val segments = engine.evaluate(profile)
 
@@ -451,7 +472,7 @@ class SegmentEngineTest {
     private fun createProfile(
         profileId: String,
         traits: Map<String, Any?> = emptyMap(),
-        lastSeen: Instant
+        lastSeen: Instant,
     ): CdpProfile {
         return CdpProfile(
             profileId = profileId,
@@ -459,7 +480,7 @@ class SegmentEngineTest {
             traits = traits,
             counters = emptyMap(),
             segments = emptySet(),
-            lastSeen = lastSeen
+            lastSeen = lastSeen,
         )
     }
 }

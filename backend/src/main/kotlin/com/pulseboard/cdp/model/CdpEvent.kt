@@ -14,7 +14,7 @@ data class CdpEvent(
     val email: String? = null,
     val name: String? = null,
     val properties: Map<String, Any?> = emptyMap(),
-    val traits: Map<String, Any?> = emptyMap()
+    val traits: Map<String, Any?> = emptyMap(),
 ) {
     /**
      * Validates the event according to CDP requirements.
@@ -34,5 +34,5 @@ data class CdpEvent(
 enum class CdpEventType {
     IDENTIFY,
     TRACK,
-    ALIAS
+    ALIAS,
 }

@@ -82,14 +82,15 @@ class CdpModelsTest {
 
     @Test
     fun `CdpEvent should accept ISO-8601 timestamp formats`() {
-        val jsonWithOffset = """
+        val jsonWithOffset =
+            """
             {
                 "eventId": "evt-001",
                 "ts": "2025-10-04T10:30:00.000+00:00",
                 "type": "IDENTIFY",
                 "userId": "user-001"
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val event: CdpEvent = objectMapper.readValue(jsonWithOffset)
         assertNotNull(event)

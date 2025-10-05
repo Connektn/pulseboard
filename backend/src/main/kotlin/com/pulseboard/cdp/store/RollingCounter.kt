@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class RollingCounter(
     private val window: Duration = Duration.ofHours(24),
-    private val bucketSize: Duration = Duration.ofMinutes(1)
+    private val bucketSize: Duration = Duration.ofMinutes(1),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -33,26 +33,37 @@ class RollingCounter(
      * @param name The event name
      * @param ts The event timestamp
      */
-    fun append(profileId: String, name: String, ts: Instant) {
+    fun append(
+        profileId: String,
+        name: String,
+        ts: Instant,
+    ) {
         val bucketTs = toBucketTimestamp(ts)
 
         // Get or create the profile's counters
-        val profileCounters = counters.computeIfAbsent(profileId) {
-            ConcurrentHashMap()
-        }
+        val profileCounters =
+            counters.computeIfAbsent(profileId) {
+                ConcurrentHashMap()
+            }
 
         // Get or create the event name's buckets
-        val buckets = profileCounters.computeIfAbsent(name) {
-            TreeMap()
-        }
+        val buckets =
+            profileCounters.computeIfAbsent(name) {
+                TreeMap()
+            }
 
         // Increment the count for this bucket
         synchronized(buckets) {
             buckets[bucketTs] = buckets.getOrDefault(bucketTs, 0L) + 1
         }
 
-        logger.debug("Appended event: profileId={}, name={}, bucket={}, count={}",
-            profileId, name, bucketTs, buckets[bucketTs])
+        logger.debug(
+            "Appended event: profileId={}, name={}, bucket={}, count={}",
+            profileId,
+            name,
+            bucketTs,
+            buckets[bucketTs],
+        )
     }
 
     /**
@@ -63,7 +74,11 @@ class RollingCounter(
      * @param window The time window (default: 24 hours)
      * @return The total count within the window
      */
-    fun count(profileId: String, name: String, window: Duration = this.window): Long {
+    fun count(
+        profileId: String,
+        name: String,
+        window: Duration = this.window,
+    ): Long {
         val profileCounters = counters[profileId] ?: return 0L
         val buckets = profileCounters[name] ?: return 0L
 
@@ -80,8 +95,13 @@ class RollingCounter(
             }
         }
 
-        logger.debug("Count query: profileId={}, name={}, window={}, result={}",
-            profileId, name, window, total)
+        logger.debug(
+            "Count query: profileId={}, name={}, window={}, result={}",
+            profileId,
+            name,
+            window,
+            total,
+        )
 
         return total
     }
@@ -111,7 +131,10 @@ class RollingCounter(
     /**
      * Evict old buckets for a specific profile.
      */
-    private fun evictForProfile(profileId: String, cutoffBucket: Long) {
+    private fun evictForProfile(
+        profileId: String,
+        cutoffBucket: Long,
+    ) {
         val profileCounters = counters[profileId] ?: return
 
         profileCounters.forEach { (name, buckets) ->
@@ -121,8 +144,12 @@ class RollingCounter(
 
                 if (evictedCount > 0) {
                     oldBuckets.clear()
-                    logger.debug("Evicted {} old buckets for profileId={}, name={}",
-                        evictedCount, profileId, name)
+                    logger.debug(
+                        "Evicted {} old buckets for profileId={}, name={}",
+                        evictedCount,
+                        profileId,
+                        name,
+                    )
                 }
             }
         }
@@ -147,7 +174,10 @@ class RollingCounter(
     /**
      * Get bucket count for a profile and event name (for testing).
      */
-    fun getBucketCount(profileId: String, name: String): Int {
+    fun getBucketCount(
+        profileId: String,
+        name: String,
+    ): Int {
         return counters[profileId]?.get(name)?.size ?: 0
     }
 
@@ -166,7 +196,10 @@ class RollingCounter(
     /**
      * Get all buckets for a profile and event name (for testing).
      */
-    fun getBuckets(profileId: String, name: String): Map<Long, Long> {
+    fun getBuckets(
+        profileId: String,
+        name: String,
+    ): Map<Long, Long> {
         val profileCounters = counters[profileId] ?: return emptyMap()
         val buckets = profileCounters[name] ?: return emptyMap()
 

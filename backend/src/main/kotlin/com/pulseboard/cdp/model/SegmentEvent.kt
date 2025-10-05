@@ -9,7 +9,7 @@ data class SegmentEvent(
     val profileId: String,
     val segment: String,
     val action: SegmentAction,
-    val ts: Instant
+    val ts: Instant,
 )
 
 /**
@@ -17,5 +17,5 @@ data class SegmentEvent(
  */
 enum class SegmentAction {
     ENTER,
-    EXIT
+    EXIT,
 }

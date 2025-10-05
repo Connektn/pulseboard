@@ -25,15 +25,16 @@ class SegmentEngine(
     private val rollingCounter: RollingCounter,
     private val reengageInactivityThreshold: Duration = Duration.ofMinutes(10),
     private val powerUserThreshold: Int = 5,
-    private val powerUserWindow: Duration = Duration.ofHours(24)
+    private val powerUserWindow: Duration = Duration.ofHours(24),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // Shared flow for segment events
-    private val _segmentEvents = MutableSharedFlow<SegmentEvent>(
-        replay = 0,
-        extraBufferCapacity = 1000
-    )
+    private val _segmentEvents =
+        MutableSharedFlow<SegmentEvent>(
+            replay = 0,
+            extraBufferCapacity = 1000,
+        )
     val segmentEvents: SharedFlow<SegmentEvent> = _segmentEvents.asSharedFlow()
 
     // Track previous segment memberships per profile
@@ -85,24 +86,26 @@ class SegmentEngine(
 
         // Emit ENTER events
         entered.forEach { segment ->
-            val event = SegmentEvent(
-                profileId = profile.profileId,
-                segment = segment,
-                action = SegmentAction.ENTER,
-                ts = now
-            )
+            val event =
+                SegmentEvent(
+                    profileId = profile.profileId,
+                    segment = segment,
+                    action = SegmentAction.ENTER,
+                    ts = now,
+                )
             _segmentEvents.emit(event)
             logger.info("Profile {} ENTERED segment: {}", profile.profileId, segment)
         }
 
         // Emit EXIT events
         exited.forEach { segment ->
-            val event = SegmentEvent(
-                profileId = profile.profileId,
-                segment = segment,
-                action = SegmentAction.EXIT,
-                ts = now
-            )
+            val event =
+                SegmentEvent(
+                    profileId = profile.profileId,
+                    segment = segment,
+                    action = SegmentAction.EXIT,
+                    ts = now,
+                )
             _segmentEvents.emit(event)
             logger.info("Profile {} EXITED segment: {}", profile.profileId, segment)
         }
@@ -118,11 +121,12 @@ class SegmentEngine(
      * TRACK[name="Feature Used"] count ≥ 5 in 24h
      */
     private fun isPowerUser(profile: CdpProfile): Boolean {
-        val featureUsedCount = rollingCounter.count(
-            profile.profileId,
-            "Feature Used",
-            powerUserWindow
-        )
+        val featureUsedCount =
+            rollingCounter.count(
+                profile.profileId,
+                "Feature Used",
+                powerUserWindow,
+            )
         return featureUsedCount >= powerUserThreshold
     }
 

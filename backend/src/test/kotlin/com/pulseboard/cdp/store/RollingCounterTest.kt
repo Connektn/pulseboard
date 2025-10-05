@@ -1,6 +1,5 @@
 package com.pulseboard.cdp.store
 
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -14,10 +13,11 @@ class RollingCounterTest {
 
     @BeforeEach
     fun setup() {
-        counter = RollingCounter(
-            window = Duration.ofHours(24),
-            bucketSize = Duration.ofMinutes(1)
-        )
+        counter =
+            RollingCounter(
+                window = Duration.ofHours(24),
+                bucketSize = Duration.ofMinutes(1),
+            )
     }
 
     // === Basic Append and Count Tests ===
@@ -123,8 +123,8 @@ class RollingCounterTest {
         // Append events at different times
         counter.append(profileId, eventName, now.minus(Duration.ofHours(25))) // Outside 24h
         counter.append(profileId, eventName, now.minus(Duration.ofHours(12))) // Within 24h
-        counter.append(profileId, eventName, now.minus(Duration.ofHours(1)))  // Within 24h
-        counter.append(profileId, eventName, now)                              // Within 24h
+        counter.append(profileId, eventName, now.minus(Duration.ofHours(1))) // Within 24h
+        counter.append(profileId, eventName, now) // Within 24h
 
         // Count with 24h window (default)
         val count24h = counter.count(profileId, eventName, Duration.ofHours(24))
@@ -166,10 +166,11 @@ class RollingCounterTest {
         val eventName = "Event"
 
         // Use smaller window for testing
-        val testCounter = RollingCounter(
-            window = Duration.ofMinutes(5),
-            bucketSize = Duration.ofMinutes(1)
-        )
+        val testCounter =
+            RollingCounter(
+                window = Duration.ofMinutes(5),
+                bucketSize = Duration.ofMinutes(1),
+            )
 
         val now = Instant.now()
 
@@ -199,16 +200,17 @@ class RollingCounterTest {
         val now = Instant.now()
 
         // Use smaller window for testing
-        val testCounter = RollingCounter(
-            window = Duration.ofMinutes(10),
-            bucketSize = Duration.ofMinutes(1)
-        )
+        val testCounter =
+            RollingCounter(
+                window = Duration.ofMinutes(10),
+                bucketSize = Duration.ofMinutes(1),
+            )
 
         // Add events at different times
         testCounter.append(profileId, eventName, now.minus(Duration.ofMinutes(20))) // Outside window
         testCounter.append(profileId, eventName, now.minus(Duration.ofMinutes(15))) // Outside window
-        testCounter.append(profileId, eventName, now.minus(Duration.ofMinutes(5)))  // Within window
-        testCounter.append(profileId, eventName, now)                                // Within window
+        testCounter.append(profileId, eventName, now.minus(Duration.ofMinutes(5))) // Within window
+        testCounter.append(profileId, eventName, now) // Within window
 
         // Before eviction: 4 buckets
         assertEquals(4, testCounter.getBucketCount(profileId, eventName))
@@ -228,10 +230,11 @@ class RollingCounterTest {
     fun `eviction should work for all profiles`() {
         val now = Instant.now()
 
-        val testCounter = RollingCounter(
-            window = Duration.ofMinutes(10),
-            bucketSize = Duration.ofMinutes(1)
-        )
+        val testCounter =
+            RollingCounter(
+                window = Duration.ofMinutes(10),
+                bucketSize = Duration.ofMinutes(1),
+            )
 
         // Add old events for multiple profiles
         testCounter.append("profile-1", "Event", now.minus(Duration.ofMinutes(20)))
@@ -313,19 +316,20 @@ class RollingCounterTest {
     }
 
     @Test
-    fun `should handle rapid appends`() = runBlocking {
-        val profileId = "profile-1"
-        val eventName = "Rapid Event"
-        val now = Instant.now()
+    fun `should handle rapid appends`() =
+        runBlocking {
+            val profileId = "profile-1"
+            val eventName = "Rapid Event"
+            val now = Instant.now()
 
-        // Append 1000 events rapidly
-        repeat(1000) {
-            counter.append(profileId, eventName, now.plusMillis(it.toLong()))
+            // Append 1000 events rapidly
+            repeat(1000) {
+                counter.append(profileId, eventName, now.plusMillis(it.toLong()))
+            }
+
+            val count = counter.count(profileId, eventName)
+            assertEquals(1000, count)
         }
-
-        val count = counter.count(profileId, eventName)
-        assertEquals(1000, count)
-    }
 
     // === Integration Tests ===
 
@@ -334,10 +338,11 @@ class RollingCounterTest {
         val profileId = "profile-1"
         val eventName = "Feature Used"
 
-        val testCounter = RollingCounter(
-            window = Duration.ofMinutes(30),
-            bucketSize = Duration.ofMinutes(1)
-        )
+        val testCounter =
+            RollingCounter(
+                window = Duration.ofMinutes(30),
+                bucketSize = Duration.ofMinutes(1),
+            )
 
         val now = Instant.now()
 
@@ -346,7 +351,7 @@ class RollingCounterTest {
         testCounter.append(profileId, eventName, now.minus(Duration.ofMinutes(40))) // Old
         testCounter.append(profileId, eventName, now.minus(Duration.ofMinutes(20))) // Within window
         testCounter.append(profileId, eventName, now.minus(Duration.ofMinutes(10))) // Within window
-        testCounter.append(profileId, eventName, now)                                // Within window
+        testCounter.append(profileId, eventName, now) // Within window
 
         // Count before eviction (query ignores old data)
         assertEquals(3, testCounter.count(profileId, eventName, Duration.ofMinutes(30)))

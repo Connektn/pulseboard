@@ -33,7 +33,7 @@ class CdpEventProcessor(
     private val allowedLateness: Duration = Duration.ofSeconds(120),
     private val dedupTtl: Duration = Duration.ofMinutes(10),
     private val tickerInterval: Duration = Duration.ofSeconds(1),
-    meterRegistry: MeterRegistry? = null
+    meterRegistry: MeterRegistry? = null,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -121,7 +121,10 @@ class CdpEventProcessor(
      * Submit an event for processing.
      * The event will be buffered and processed when the watermark advances.
      */
-    fun submit(event: CdpEvent, profileId: String) {
+    fun submit(
+        event: CdpEvent,
+        profileId: String,
+    ) {
         // Check for duplicate
         val dedupCache = getDedupCache(profileId)
         if (dedupCache.getIfPresent(event.eventId) != null) {
@@ -153,17 +156,18 @@ class CdpEventProcessor(
             return
         }
 
-        tickerJob = scope.launch {
-            logger.info("Starting watermark ticker with interval={}", tickerInterval)
-            while (isActive) {
-                try {
-                    tick()
-                    delay(tickerInterval.toMillis())
-                } catch (e: Exception) {
-                    logger.error("Error in watermark ticker", e)
+        tickerJob =
+            scope.launch {
+                logger.info("Starting watermark ticker with interval={}", tickerInterval)
+                while (isActive) {
+                    try {
+                        tick()
+                        delay(tickerInterval.toMillis())
+                    } catch (e: Exception) {
+                        logger.error("Error in watermark ticker", e)
+                    }
                 }
             }
-        }
     }
 
     /**
@@ -198,7 +202,10 @@ class CdpEventProcessor(
     /**
      * Drain events from a queue that are <= watermark.
      */
-    private fun drainQueue(profileId: String, queue: PriorityQueue<CdpEvent>) {
+    private fun drainQueue(
+        profileId: String,
+        queue: PriorityQueue<CdpEvent>,
+    ) {
         val drained = mutableListOf<CdpEvent>()
 
         synchronized(queue) {
@@ -227,7 +234,10 @@ class CdpEventProcessor(
     /**
      * Process a single event.
      */
-    private fun processEvent(event: CdpEvent, profileId: String) {
+    private fun processEvent(
+        event: CdpEvent,
+        profileId: String,
+    ) {
         processedCounter.incrementAndGet()
         logger.debug("Processing event: eventId={}, profileId={}, ts={}", event.eventId, profileId, event.ts)
 

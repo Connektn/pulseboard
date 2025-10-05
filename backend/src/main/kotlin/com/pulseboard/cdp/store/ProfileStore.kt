@@ -44,7 +44,7 @@ class ProfileStore {
                 traits = emptyMap(),
                 counters = emptyMap(),
                 segments = emptySet(),
-                lastSeen = Instant.EPOCH
+                lastSeen = Instant.EPOCH,
             )
         }
     }
@@ -52,19 +52,28 @@ class ProfileStore {
     /**
      * Update profile identifiers by merging with existing identifiers.
      */
-    fun mergeIdentifiers(profileId: String, newIdentifiers: ProfileIdentifiers): CdpProfile {
+    fun mergeIdentifiers(
+        profileId: String,
+        newIdentifiers: ProfileIdentifiers,
+    ): CdpProfile {
         val current = getOrCreate(profileId)
-        val merged = ProfileIdentifiers(
-            userIds = current.identifiers.userIds + newIdentifiers.userIds,
-            emails = current.identifiers.emails + newIdentifiers.emails,
-            anonymousIds = current.identifiers.anonymousIds + newIdentifiers.anonymousIds
-        )
+        val merged =
+            ProfileIdentifiers(
+                userIds = current.identifiers.userIds + newIdentifiers.userIds,
+                emails = current.identifiers.emails + newIdentifiers.emails,
+                anonymousIds = current.identifiers.anonymousIds + newIdentifiers.anonymousIds,
+            )
 
         val updated = current.copy(identifiers = merged)
         profiles[profileId] = updated
 
-        logger.debug("Merged identifiers for profileId={}: userIds={}, emails={}, anonymousIds={}",
-            profileId, merged.userIds.size, merged.emails.size, merged.anonymousIds.size)
+        logger.debug(
+            "Merged identifiers for profileId={}: userIds={}, emails={}, anonymousIds={}",
+            profileId,
+            merged.userIds.size,
+            merged.emails.size,
+            merged.anonymousIds.size,
+        )
 
         return updated
     }
@@ -73,7 +82,11 @@ class ProfileStore {
      * Merge traits using Last-Write-Wins (LWW) strategy.
      * Only update traits if the event timestamp is newer than the last update for that trait.
      */
-    fun mergeTraits(profileId: String, newTraits: Map<String, Any?>, eventTimestamp: Instant): CdpProfile {
+    fun mergeTraits(
+        profileId: String,
+        newTraits: Map<String, Any?>,
+        eventTimestamp: Instant,
+    ): CdpProfile {
         val current = getOrCreate(profileId)
         val timestamps = traitTimestamps.computeIfAbsent(profileId) { ConcurrentHashMap() }
 
@@ -84,11 +97,21 @@ class ProfileStore {
             if (lastUpdateTime == null || eventTimestamp >= lastUpdateTime) {
                 mergedTraits[key] = value
                 timestamps[key] = eventTimestamp
-                logger.debug("Updated trait for profileId={}: key={}, value={}, ts={}",
-                    profileId, key, value, eventTimestamp)
+                logger.debug(
+                    "Updated trait for profileId={}: key={}, value={}, ts={}",
+                    profileId,
+                    key,
+                    value,
+                    eventTimestamp,
+                )
             } else {
-                logger.debug("Skipped stale trait update for profileId={}: key={}, eventTs={}, lastTs={}",
-                    profileId, key, eventTimestamp, lastUpdateTime)
+                logger.debug(
+                    "Skipped stale trait update for profileId={}: key={}, eventTs={}, lastTs={}",
+                    profileId,
+                    key,
+                    eventTimestamp,
+                    lastUpdateTime,
+                )
             }
         }
 
@@ -101,7 +124,10 @@ class ProfileStore {
     /**
      * Update lastSeen timestamp if newer.
      */
-    fun updateLastSeen(profileId: String, timestamp: Instant): CdpProfile {
+    fun updateLastSeen(
+        profileId: String,
+        timestamp: Instant,
+    ): CdpProfile {
         val current = getOrCreate(profileId)
         if (timestamp > current.lastSeen) {
             val updated = current.copy(lastSeen = timestamp)
@@ -115,7 +141,10 @@ class ProfileStore {
     /**
      * Update counters for a profile.
      */
-    fun updateCounters(profileId: String, counters: Map<String, Long>): CdpProfile {
+    fun updateCounters(
+        profileId: String,
+        counters: Map<String, Long>,
+    ): CdpProfile {
         val current = getOrCreate(profileId)
         val updated = current.copy(counters = counters)
         profiles[profileId] = updated
@@ -125,7 +154,10 @@ class ProfileStore {
     /**
      * Update segments for a profile.
      */
-    fun updateSegments(profileId: String, segments: Set<String>): CdpProfile {
+    fun updateSegments(
+        profileId: String,
+        segments: Set<String>,
+    ): CdpProfile {
         val current = getOrCreate(profileId)
         val updated = current.copy(segments = segments)
         profiles[profileId] = updated
