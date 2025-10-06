@@ -2,6 +2,7 @@ package com.pulseboard.cdp.api
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.pulseboard.cdp.model.CdpEvent
+import com.pulseboard.cdp.model.CdpEventPayload
 import com.pulseboard.cdp.model.CdpEventType
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -37,10 +38,12 @@ class CdpIngestControllerTest {
             {
                 "eventId": "evt-123",
                 "ts": "2025-10-04T10:30:00Z",
-                "type": "TRACK",
-                "userId": "user-123",
-                "name": "Feature Used",
-                "properties": {"feature": "dashboard"}
+                "payload": {
+                    "type": "TRACK",
+                    "userId": "user-123",
+                    "name": "Feature Used",
+                    "properties": {"feature": "dashboard"}
+                }
             }
             """.trimIndent()
 
@@ -68,8 +71,10 @@ class CdpIngestControllerTest {
             {
                 "eventId": "evt-456",
                 "ts": "2025-10-04T11:00:00Z",
-                "type": "IDENTIFY",
-                "email": "user@example.com"
+                "payload": {
+                    "type": "IDENTIFY",
+                    "email": "user@example.com"
+                }
             }
             """.trimIndent()
 
@@ -95,9 +100,11 @@ class CdpIngestControllerTest {
             {
                 "eventId": "evt-789",
                 "ts": "2025-10-04T12:00:00Z",
-                "type": "ALIAS",
-                "anonymousId": "anon-123",
-                "userId": "user-456"
+                "payload": {
+                    "type": "ALIAS",
+                    "anonymousId": "anon-123",
+                    "userId": "user-456"
+                }
             }
             """.trimIndent()
 
@@ -123,8 +130,10 @@ class CdpIngestControllerTest {
             {
                 "eventId": "evt-invalid",
                 "ts": "2025-10-04T10:30:00Z",
-                "type": "TRACK",
-                "userId": "user-123"
+                "payload": {
+                    "type": "TRACK",
+                    "userId": "user-123"
+                }
             }
             """.trimIndent()
 
@@ -152,7 +161,9 @@ class CdpIngestControllerTest {
             {
                 "eventId": "evt-invalid",
                 "ts": "2025-10-04T10:30:00Z",
-                "type": "IDENTIFY"
+                "payload": {
+                    "type": "IDENTIFY"
+                }
             }
             """.trimIndent()
 
@@ -180,8 +191,10 @@ class CdpIngestControllerTest {
             {
                 "eventId": "",
                 "ts": "2025-10-04T10:30:00Z",
-                "type": "IDENTIFY",
-                "userId": "user-123"
+                "payload": {
+                    "type": "IDENTIFY",
+                    "userId": "user-123"
+                }
             }
             """.trimIndent()
 
@@ -225,9 +238,12 @@ class CdpIngestControllerTest {
                 CdpEvent(
                     eventId = "evt-success",
                     ts = Instant.parse("2025-10-04T14:00:00Z"),
-                    type = CdpEventType.IDENTIFY,
-                    userId = "user-999",
-                    traits = mapOf("plan" to "pro"),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = "user-999",
+                            traits = mapOf("plan" to "pro"),
+                        ),
                 )
 
             coEvery { mockEventBus.publish(event) } returns Unit

@@ -181,7 +181,8 @@ class CdpControllerTest {
                 traits = mapOf("plan" to "basic"),
                 counters = emptyMap(),
                 segments = emptySet(),
-                lastSeen = now.minusSeconds(10), // Older
+                // Older
+                lastSeen = now.minusSeconds(10),
             )
         val profile2 =
             CdpProfile(
@@ -190,7 +191,8 @@ class CdpControllerTest {
                 traits = mapOf("plan" to "pro"),
                 counters = emptyMap(),
                 segments = emptySet(),
-                lastSeen = now, // Newer
+                // Newer
+                lastSeen = now,
             )
 
         every { mockProfileStore.getAll() } returns

@@ -1,8 +1,6 @@
 package com.pulseboard.ingest
 
 import com.pulseboard.core.EntityEvent
-import com.pulseboard.core.EntityPayload
-import com.pulseboard.core.Profile
 import com.pulseboard.core.Rules
 import com.pulseboard.core.WindowStore
 import com.pulseboard.transport.EventTransport
@@ -14,7 +12,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

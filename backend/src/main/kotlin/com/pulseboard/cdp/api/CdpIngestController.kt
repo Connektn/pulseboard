@@ -48,7 +48,7 @@ class CdpIngestController(
             // Validate the event
             event.validate()
             eventBus.publish(event)
-            logger.debug("Ingested CDP event: eventId={}, type={}", event.eventId, event.type)
+            logger.debug("Ingested CDP event: eventId={}, type={}", event.eventId, event.payload.type)
             ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(mapOf("status" to "accepted", "eventId" to event.eventId))
         } catch (e: IllegalArgumentException) {

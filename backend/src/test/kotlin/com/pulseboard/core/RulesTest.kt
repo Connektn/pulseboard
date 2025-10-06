@@ -423,7 +423,7 @@ class RulesTest {
                 mockWindowStore.sumIn(
                     "user789",
                     "CONN_BYTES",
-                    Duration.ofSeconds(30)
+                    Duration.ofSeconds(30),
                 )
             } returns 1000L // Exactly at threshold
 
@@ -508,13 +508,14 @@ class RulesTest {
         return EntityEvent(
             eventId = randomUUID().toString(),
             ts = testTimestamp,
-            payload = EntityPayload(
-                entityId = entityId,
-                profile = profile,
-                type = type,
-                value = value,
-                tags = tags,
-            )
+            payload =
+                EntityPayload(
+                    entityId = entityId,
+                    profile = profile,
+                    type = type,
+                    value = value,
+                    tags = tags,
+                ),
         )
     }
 }

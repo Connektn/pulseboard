@@ -97,13 +97,13 @@ class CdpPipeline(
      * Step 1-4: Ingest event, normalize identifiers, resolve identity, enqueue.
      */
     private fun ingestEvent(event: CdpEvent) {
-        logger.debug("Ingesting event: eventId={}, type={}", event.eventId, event.type)
+        logger.debug("Ingesting event: eventId={}, type={}", event.eventId, event.payload.type)
 
         // Extract and normalize identifiers
         val identifiers = extractIdentifiers(event)
 
         // On IDENTIFY/ALIAS: union identifiers in identity graph
-        when (event.type) {
+        when (event.payload.type) {
             CdpEventType.IDENTIFY, CdpEventType.ALIAS -> {
                 unionIdentifiers(identifiers)
             }
@@ -123,7 +123,7 @@ class CdpPipeline(
      * Step 6: Process drained event (≤ watermark) in order.
      */
     private suspend fun processEvent(event: CdpEvent) {
-        logger.debug("Processing event: eventId={}, type={}", event.eventId, event.type)
+        logger.debug("Processing event: eventId={}, type={}", event.eventId, event.payload.type)
 
         // Extract and normalize identifiers
         val identifiers = extractIdentifiers(event)
@@ -140,16 +140,16 @@ class CdpPipeline(
         )
 
         // Merge traits (LWW)
-        if (event.traits.isNotEmpty()) {
-            profileStore.mergeTraits(canonicalId, event.traits, event.ts)
+        if (event.payload.traits.isNotEmpty()) {
+            profileStore.mergeTraits(canonicalId, event.payload.traits, event.ts)
         }
 
         // Update lastSeen
         profileStore.updateLastSeen(canonicalId, event.ts)
 
         // Increment rolling counter for TRACK events
-        if (event.type == CdpEventType.TRACK && event.name != null) {
-            rollingCounter.append(canonicalId, event.name, event.ts)
+        if (event.payload.type == CdpEventType.TRACK && event.payload.name != null) {
+            rollingCounter.append(canonicalId, event.payload.name, event.ts)
         }
 
         // Get current profile state
@@ -176,9 +176,9 @@ class CdpPipeline(
     private fun extractIdentifiers(event: CdpEvent): Set<String> {
         val identifiers = mutableSetOf<String>()
 
-        event.userId?.let { identifiers.add(identityGraph.normalize("user:$it")) }
-        event.email?.let { identifiers.add(identityGraph.normalize("email:$it")) }
-        event.anonymousId?.let { identifiers.add(identityGraph.normalize("anon:$it")) }
+        event.payload.userId?.let { identifiers.add(identityGraph.normalize("user:$it")) }
+        event.payload.email?.let { identifiers.add(identityGraph.normalize("email:$it")) }
+        event.payload.anonymousId?.let { identifiers.add(identityGraph.normalize("anon:$it")) }
 
         return identifiers
     }

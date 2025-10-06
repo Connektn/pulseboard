@@ -23,13 +23,14 @@ class CoreModelsTest {
             EntityEvent(
                 eventId = randomUUID().toString(),
                 ts = Instant.parse("2023-12-01T10:30:00Z"),
-                payload = EntityPayload(
-                    entityId = "user123",
-                    profile = Profile.SASE,
-                    type = "CONN_OPEN",
-                    value = 42L,
-                    tags = mapOf("geo" to "US", "device" to "mobile"),
-                )
+                payload =
+                    EntityPayload(
+                        entityId = "user123",
+                        profile = Profile.SASE,
+                        type = "CONN_OPEN",
+                        value = 42L,
+                        tags = mapOf("geo" to "US", "device" to "mobile"),
+                    ),
             )
 
         val json = objectMapper.writeValueAsString(event)
@@ -45,11 +46,12 @@ class CoreModelsTest {
             EntityEvent(
                 eventId = randomUUID().toString(),
                 ts = Instant.parse("2023-12-01T10:30:00Z"),
-                payload = EntityPayload(
-                    profile = Profile.IGAMING,
-                    type = "BET_PLACED",
-                    entityId = "user456",
-                )
+                payload =
+                    EntityPayload(
+                        profile = Profile.IGAMING,
+                        type = "BET_PLACED",
+                        entityId = "user456",
+                    ),
             )
 
         val json = objectMapper.writeValueAsString(event)

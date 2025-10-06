@@ -3,6 +3,7 @@ package com.pulseboard.cdp.runtime
 import com.pulseboard.cdp.api.CdpEventBus
 import com.pulseboard.cdp.identity.IdentityGraph
 import com.pulseboard.cdp.model.CdpEvent
+import com.pulseboard.cdp.model.CdpEventPayload
 import com.pulseboard.cdp.model.CdpEventType
 import com.pulseboard.cdp.segments.SegmentEngine
 import com.pulseboard.cdp.store.ProfileStore
@@ -15,9 +16,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -97,13 +96,16 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-1",
                     ts = now,
-                    type = CdpEventType.IDENTIFY,
-                    userId = "u123",
-                    email = "test@example.com",
-                    anonymousId = null,
-                    name = null,
-                    properties = emptyMap(),
-                    traits = mapOf("name" to "Test User", "plan" to "basic"),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = "u123",
+                            email = "test@example.com",
+                            anonymousId = null,
+                            name = null,
+                            properties = emptyMap(),
+                            traits = mapOf("name" to "Test User", "plan" to "basic"),
+                        ),
                 )
 
             // Publish event
@@ -137,13 +139,16 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-identify",
                     ts = now,
-                    type = CdpEventType.IDENTIFY,
-                    userId = userId,
-                    email = null,
-                    anonymousId = null,
-                    name = null,
-                    properties = emptyMap(),
-                    traits = mapOf("name" to "Test User"),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = userId,
+                            email = null,
+                            anonymousId = null,
+                            name = null,
+                            properties = emptyMap(),
+                            traits = mapOf("name" to "Test User"),
+                        ),
                 )
 
             eventBus.publish(identifyEvent)
@@ -155,13 +160,16 @@ class CdpPipelineTest {
                     CdpEvent(
                         eventId = "evt-track-$i",
                         ts = now.plusSeconds(i.toLong() + 1),
-                        type = CdpEventType.TRACK,
-                        userId = userId,
-                        email = null,
-                        anonymousId = null,
-                        name = "Feature Used",
-                        properties = mapOf("feature" to "test-feature-$i"),
-                        traits = emptyMap(),
+                        payload =
+                            CdpEventPayload(
+                                type = CdpEventType.TRACK,
+                                userId = userId,
+                                email = null,
+                                anonymousId = null,
+                                name = "Feature Used",
+                                properties = mapOf("feature" to "test-feature-$i"),
+                                traits = emptyMap(),
+                            ),
                     )
                 eventBus.publish(trackEvent)
                 delay(100)
@@ -189,13 +197,16 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-1",
                     ts = now,
-                    type = CdpEventType.IDENTIFY,
-                    userId = null,
-                    email = null,
-                    anonymousId = "anon123",
-                    name = null,
-                    properties = emptyMap(),
-                    traits = mapOf("visitor" to true),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = null,
+                            email = null,
+                            anonymousId = "anon123",
+                            name = null,
+                            properties = emptyMap(),
+                            traits = mapOf("visitor" to true),
+                        ),
                 )
 
             eventBus.publish(identify1)
@@ -208,13 +219,16 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-2",
                     ts = now.plusSeconds(3),
-                    type = CdpEventType.ALIAS,
-                    userId = "u123",
-                    email = null,
-                    anonymousId = "anon123",
-                    name = null,
-                    properties = emptyMap(),
-                    traits = emptyMap(),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.ALIAS,
+                            userId = "u123",
+                            email = null,
+                            anonymousId = "anon123",
+                            name = null,
+                            properties = emptyMap(),
+                            traits = emptyMap(),
+                        ),
                 )
 
             eventBus.publish(aliasEvent)
@@ -246,27 +260,34 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-1",
                     ts = now,
-                    type = CdpEventType.IDENTIFY,
-                    userId = userId,
-                    email = null,
-                    anonymousId = null,
-                    name = null,
-                    properties = emptyMap(),
-                    traits = mapOf("plan" to "pro"),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = userId,
+                            email = null,
+                            anonymousId = null,
+                            name = null,
+                            properties = emptyMap(),
+                            traits = mapOf("plan" to "pro"),
+                        ),
                 )
 
             // Event 2: Try to set plan=basic at T-10 (older)
             val event2 =
                 CdpEvent(
                     eventId = "evt-2",
-                    ts = now.minusSeconds(10), // Older timestamp
-                    type = CdpEventType.IDENTIFY,
-                    userId = userId,
-                    email = null,
-                    anonymousId = null,
-                    name = null,
-                    properties = emptyMap(),
-                    traits = mapOf("plan" to "basic"),
+                    // Older timestamp
+                    ts = now.minusSeconds(10),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = userId,
+                            email = null,
+                            anonymousId = null,
+                            name = null,
+                            properties = emptyMap(),
+                            traits = mapOf("plan" to "basic"),
+                        ),
                 )
 
             // Publish newer event first
@@ -300,13 +321,16 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-identify",
                     ts = now,
-                    type = CdpEventType.IDENTIFY,
-                    userId = userId,
-                    email = null,
-                    anonymousId = null,
-                    name = null,
-                    properties = emptyMap(),
-                    traits = emptyMap(),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = userId,
+                            email = null,
+                            anonymousId = null,
+                            name = null,
+                            properties = emptyMap(),
+                            traits = emptyMap(),
+                        ),
                 )
 
             eventBus.publish(identifyEvent)
@@ -318,13 +342,16 @@ class CdpPipelineTest {
                     CdpEvent(
                         eventId = "evt-track-$i",
                         ts = now.plusSeconds(i.toLong() + 1),
-                        type = CdpEventType.TRACK,
-                        userId = userId,
-                        email = null,
-                        anonymousId = null,
-                        name = "Feature Used",
-                        properties = emptyMap(),
-                        traits = emptyMap(),
+                        payload =
+                            CdpEventPayload(
+                                type = CdpEventType.TRACK,
+                                userId = userId,
+                                email = null,
+                                anonymousId = null,
+                                name = "Feature Used",
+                                properties = emptyMap(),
+                                traits = emptyMap(),
+                            ),
                     )
                 eventBus.publish(trackEvent)
                 delay(50)
@@ -359,13 +386,16 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-1",
                     ts = now,
-                    type = CdpEventType.IDENTIFY,
-                    userId = userId,
-                    email = null,
-                    anonymousId = null,
-                    name = null,
-                    properties = emptyMap(),
-                    traits = mapOf("plan" to "basic"),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = userId,
+                            email = null,
+                            anonymousId = null,
+                            name = null,
+                            properties = emptyMap(),
+                            traits = mapOf("plan" to "basic"),
+                        ),
                 )
 
             eventBus.publish(event1)
@@ -378,13 +408,16 @@ class CdpPipelineTest {
                 CdpEvent(
                     eventId = "evt-2",
                     ts = now.plusSeconds(10),
-                    type = CdpEventType.IDENTIFY,
-                    userId = userId,
-                    email = null,
-                    anonymousId = null,
-                    name = null,
-                    properties = emptyMap(),
-                    traits = mapOf("plan" to "basic"),
+                    payload =
+                        CdpEventPayload(
+                            type = CdpEventType.IDENTIFY,
+                            userId = userId,
+                            email = null,
+                            anonymousId = null,
+                            name = null,
+                            properties = emptyMap(),
+                            traits = mapOf("plan" to "basic"),
+                        ),
                 )
 
             eventBus.publish(event2)

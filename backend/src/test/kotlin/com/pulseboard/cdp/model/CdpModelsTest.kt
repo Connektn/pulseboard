@@ -25,13 +25,16 @@ class CdpModelsTest {
             CdpEvent(
                 eventId = "evt-123",
                 ts = Instant.parse("2025-10-04T10:30:00Z"),
-                type = CdpEventType.TRACK,
-                anonymousId = "anon-456",
-                userId = "user-789",
-                email = "test@example.com",
-                name = "Feature Used",
-                properties = mapOf("feature" to "dashboard", "count" to 5),
-                traits = mapOf("plan" to "pro", "country" to "US"),
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.TRACK,
+                        anonymousId = "anon-456",
+                        userId = "user-789",
+                        email = "test@example.com",
+                        name = "Feature Used",
+                        properties = mapOf("feature" to "dashboard", "count" to 5),
+                        traits = mapOf("plan" to "pro", "country" to "US"),
+                    ),
             )
 
         val json = objectMapper.writeValueAsString(event)
@@ -47,8 +50,11 @@ class CdpModelsTest {
             CdpEvent(
                 eventId = "evt-456",
                 ts = Instant.parse("2025-10-04T11:00:00Z"),
-                type = CdpEventType.IDENTIFY,
-                userId = "user-123",
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.IDENTIFY,
+                        userId = "user-123",
+                    ),
             )
 
         val json = objectMapper.writeValueAsString(event)
@@ -56,11 +62,11 @@ class CdpModelsTest {
 
         val deserializedEvent: CdpEvent = objectMapper.readValue(json)
         assertEquals(event, deserializedEvent)
-        assertEquals(null, deserializedEvent.anonymousId)
-        assertEquals(null, deserializedEvent.email)
-        assertEquals(null, deserializedEvent.name)
-        assertEquals(emptyMap(), deserializedEvent.properties)
-        assertEquals(emptyMap(), deserializedEvent.traits)
+        assertEquals(null, deserializedEvent.payload.anonymousId)
+        assertEquals(null, deserializedEvent.payload.email)
+        assertEquals(null, deserializedEvent.payload.name)
+        assertEquals(emptyMap(), deserializedEvent.payload.properties)
+        assertEquals(emptyMap(), deserializedEvent.payload.traits)
     }
 
     @Test
@@ -69,9 +75,12 @@ class CdpModelsTest {
             CdpEvent(
                 eventId = "evt-789",
                 ts = Instant.parse("2025-10-04T12:00:00Z"),
-                type = CdpEventType.ALIAS,
-                anonymousId = "anon-999",
-                userId = "user-888",
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.ALIAS,
+                        anonymousId = "anon-999",
+                        userId = "user-888",
+                    ),
             )
 
         val json = objectMapper.writeValueAsString(event)
@@ -88,15 +97,17 @@ class CdpModelsTest {
             {
                 "eventId": "evt-001",
                 "ts": "2025-10-04T10:30:00.000+00:00",
-                "type": "IDENTIFY",
-                "userId": "user-001"
+                "payload": {
+                    "type": "IDENTIFY",
+                    "userId": "user-001"
+                }
             }
             """.trimIndent()
 
         val event: CdpEvent = objectMapper.readValue(jsonWithOffset)
         assertNotNull(event)
         assertEquals("evt-001", event.eventId)
-        assertEquals(CdpEventType.IDENTIFY, event.type)
+        assertEquals(CdpEventType.IDENTIFY, event.payload.type)
     }
 
     @Test
@@ -105,8 +116,11 @@ class CdpModelsTest {
             CdpEvent(
                 eventId = "",
                 ts = fixedClock.instant(),
-                type = CdpEventType.IDENTIFY,
-                userId = "user-123",
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.IDENTIFY,
+                        userId = "user-123",
+                    ),
             )
         val exception = assertThrows<IllegalArgumentException> { event.validate() }
         assertTrue(exception.message!!.contains("eventId is required"))
@@ -118,7 +132,10 @@ class CdpModelsTest {
             CdpEvent(
                 eventId = "evt-123",
                 ts = fixedClock.instant(),
-                type = CdpEventType.IDENTIFY,
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.IDENTIFY,
+                    ),
             )
         val exception = assertThrows<IllegalArgumentException> { event.validate() }
         assertTrue(exception.message!!.contains("At least one of anonymousId, userId, or email"))
@@ -130,8 +147,11 @@ class CdpModelsTest {
             CdpEvent(
                 eventId = "evt-123",
                 ts = fixedClock.instant(),
-                type = CdpEventType.TRACK,
-                userId = "user-123",
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.TRACK,
+                        userId = "user-123",
+                    ),
             )
         val exception = assertThrows<IllegalArgumentException> { event.validate() }
         assertTrue(exception.message!!.contains("TRACK events require a name"))

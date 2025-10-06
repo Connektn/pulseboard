@@ -1,6 +1,7 @@
 package com.pulseboard.cdp.runtime
 
 import com.pulseboard.cdp.model.CdpEvent
+import com.pulseboard.cdp.model.CdpEventPayload
 import com.pulseboard.cdp.model.CdpEventType
 import com.pulseboard.fixedClock
 import com.pulseboard.testMeterRegistry
@@ -384,11 +385,13 @@ class CdpEventProcessorTest {
             listOf(
                 createEvent("evt-1", baseTime.plusSeconds(10)),
                 createEvent("evt-3", baseTime.plusSeconds(30)),
-                createEvent("evt-1", baseTime.plusSeconds(10)), // Duplicate
+                // Duplicate
+                createEvent("evt-1", baseTime.plusSeconds(10)),
                 createEvent("evt-2", baseTime.plusSeconds(20)),
                 createEvent("evt-5", baseTime.plusSeconds(50)),
                 createEvent("evt-4", baseTime.plusSeconds(40)),
-                createEvent("evt-3", baseTime.plusSeconds(30)), // Duplicate
+                // Duplicate
+                createEvent("evt-3", baseTime.plusSeconds(30)),
             )
 
         events.forEach { processor.submit(it, profileId) }
@@ -436,9 +439,12 @@ class CdpEventProcessorTest {
         return CdpEvent(
             eventId = eventId,
             ts = ts,
-            type = CdpEventType.TRACK,
-            userId = "user-123",
-            name = "test_event",
+            payload =
+                CdpEventPayload(
+                    type = CdpEventType.TRACK,
+                    userId = "user-123",
+                    name = "test_event",
+                ),
         )
     }
 }

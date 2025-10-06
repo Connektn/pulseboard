@@ -1,6 +1,9 @@
 package com.pulseboard.ingest
 
 import com.pulseboard.cdp.api.CdpEventBus
+import com.pulseboard.cdp.model.CdpEvent
+import com.pulseboard.cdp.model.CdpEventPayload
+import com.pulseboard.cdp.model.CdpEventType
 import com.pulseboard.core.EntityEvent
 import com.pulseboard.core.EntityPayload
 import com.pulseboard.core.Profile
@@ -294,19 +297,22 @@ class Simulator(
     private suspend fun generateCdpIdentify() {
         val userId = cdpUsers.random(random)
         val event =
-            com.pulseboard.cdp.model.CdpEvent(
+            CdpEvent(
                 eventId = generateEventId(allowDuplicate = true),
                 ts = applyJitter(Instant.now()),
-                type = com.pulseboard.cdp.model.CdpEventType.IDENTIFY,
-                userId = userId,
-                email = "$userId@example.com",
-                anonymousId = null,
-                name = null,
-                properties = emptyMap(),
-                traits =
-                    mapOf(
-                        "plan" to cdpPlans.random(random),
-                        "country" to cdpCountries.random(random),
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.IDENTIFY,
+                        userId = userId,
+                        email = "$userId@example.com",
+                        anonymousId = null,
+                        name = null,
+                        properties = emptyMap(),
+                        traits =
+                            mapOf(
+                                "plan" to cdpPlans.random(random),
+                                "country" to cdpCountries.random(random),
+                            ),
                     ),
             )
         cdpEventBus.publish(event)
@@ -315,16 +321,19 @@ class Simulator(
     private suspend fun generateCdpTrack() {
         val userId = cdpUsers.random(random)
         val event =
-            com.pulseboard.cdp.model.CdpEvent(
+            CdpEvent(
                 eventId = generateEventId(allowDuplicate = true),
                 ts = applyJitter(Instant.now()),
-                type = com.pulseboard.cdp.model.CdpEventType.TRACK,
-                userId = userId,
-                email = null,
-                anonymousId = null,
-                name = cdpTrackEventNames.random(random),
-                properties = mapOf("source" to "simulator"),
-                traits = emptyMap(),
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.TRACK,
+                        userId = userId,
+                        email = null,
+                        anonymousId = null,
+                        name = cdpTrackEventNames.random(random),
+                        properties = mapOf("source" to "simulator"),
+                        traits = emptyMap(),
+                    ),
             )
         cdpEventBus.publish(event)
     }
@@ -349,16 +358,19 @@ class Simulator(
 
         // No duplicates for ALIAS
         val event =
-            com.pulseboard.cdp.model.CdpEvent(
+            CdpEvent(
                 eventId = generateEventId(allowDuplicate = false),
                 ts = applyJitter(Instant.now()),
-                type = com.pulseboard.cdp.model.CdpEventType.ALIAS,
-                userId = userId,
-                email = null,
-                anonymousId = anonId,
-                name = null,
-                properties = emptyMap(),
-                traits = emptyMap(),
+                payload =
+                    CdpEventPayload(
+                        type = CdpEventType.ALIAS,
+                        userId = userId,
+                        email = null,
+                        anonymousId = anonId,
+                        name = null,
+                        properties = emptyMap(),
+                        traits = emptyMap(),
+                    ),
             )
         cdpEventBus.publish(event)
     }

@@ -34,11 +34,12 @@ class EventBusTest {
             EntityEvent(
                 eventId = randomUUID().toString(),
                 ts = Instant.parse("2023-12-01T10:30:00Z"),
-                payload = EntityPayload(
-                    profile = Profile.SASE,
-                    type = "LOGIN",
-                    entityId = "user999",
-                )
+                payload =
+                    EntityPayload(
+                        profile = Profile.SASE,
+                        type = "LOGIN",
+                        entityId = "user999",
+                    ),
             )
 
         val result = eventBus.tryPublishEvent(testEvent)
