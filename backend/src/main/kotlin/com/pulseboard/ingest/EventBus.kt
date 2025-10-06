@@ -36,11 +36,6 @@ class EventBus(
         statsService.recordEvent()
     }
 
-    suspend fun publishAlert(alert: Alert) {
-        _alerts.emit(alert)
-        statsService.recordAlert()
-    }
-
     fun tryPublishEvent(event: Event): Boolean {
         val result = _events.tryEmit(event)
         if (result) {

@@ -60,7 +60,12 @@ class CdpPipeline(
         eventBus.events
             .onEach { event ->
                 try {
+                    // Ensure the event is valid
+                    event.validate()
+                    // Process ingestion steps
                     ingestEvent(event)
+                } catch (e: IllegalArgumentException) {
+                    logger.warn("Validation failed for event: eventId={}, error={}", event.eventId, e.message)
                 } catch (e: Exception) {
                     logger.error("Error ingesting event: eventId={}", event.eventId, e)
                 }
