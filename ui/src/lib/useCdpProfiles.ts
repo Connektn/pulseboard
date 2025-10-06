@@ -37,13 +37,6 @@ export function useCdpProfiles(enabled: boolean = true): CdpProfilesState {
   const { lastMessage, connected, error } = useEventSource<ProfileSummary[]>('/sse/cdp/profiles', { enabled });
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
 
-  // Clear profiles when disabled
-  useEffect(() => {
-    if (!enabled) {
-      setProfiles([]);
-    }
-  }, [enabled]);
-
   useEffect(() => {
     if (!lastMessage) return;
 

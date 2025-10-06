@@ -310,9 +310,10 @@ class Simulator(
             return
         }
 
+        // No duplicates for ALIAS
         val event =
             com.pulseboard.cdp.model.CdpEvent(
-                eventId = generateEventId(allowDuplicate = false), // No duplicates for ALIAS
+                eventId = generateEventId(allowDuplicate = false),
                 ts = applyJitter(Instant.now()),
                 type = com.pulseboard.cdp.model.CdpEventType.ALIAS,
                 userId = userId,

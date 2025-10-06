@@ -31,13 +31,6 @@ export function useSegmentFeed(enabled: boolean = true, maxEvents: number = 200)
   const { lastMessage, connected, error } = useEventSource<SegmentEvent>('/sse/cdp/segments', { enabled });
   const [events, setEvents] = useState<SegmentEvent[]>([]);
 
-  // Clear events when disabled
-  useEffect(() => {
-    if (!enabled) {
-      setEvents([]);
-    }
-  }, [enabled]);
-
   useEffect(() => {
     if (!lastMessage) return;
 

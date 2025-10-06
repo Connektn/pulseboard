@@ -20,6 +20,7 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
   const [rps, setRps] = useState(20);
   const [latenessSec, setLatenessSec] = useState(60);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [configUpdateTimeout, setConfigUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Load profile and simulator status from backend on mount
   useEffect(() => {
@@ -79,6 +80,32 @@ export function Header({ stats, onProfileChange, onSimulatorStart, onSimulatorSt
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  // Debounced config update when sliders change (only if simulator is running)
+  useEffect(() => {
+    if (!isSimulatorRunning) return;
+
+    // Clear existing timeout
+    if (configUpdateTimeout) {
+      clearTimeout(configUpdateTimeout);
+    }
+
+    // Set new timeout to update config after 500ms of no changes
+    const timeout = setTimeout(async () => {
+      try {
+        await api.simulator.updateConfig({ rps, latenessSec });
+      } catch (error) {
+        console.error('Failed to update simulator config:', error);
+      }
+    }, 500);
+
+    setConfigUpdateTimeout(timeout);
+
+    // Cleanup on unmount
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [rps, latenessSec, isSimulatorRunning]);
 
   const handleProfileSelect = async (profile: 'SASE' | 'IGAMING' | 'CDP') => {
     if (profile === currentProfile) return;

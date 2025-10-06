@@ -3,7 +3,10 @@ package com.pulseboard.api
 import com.pulseboard.core.Profile
 import com.pulseboard.ingest.Simulator
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
@@ -15,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 class SimulatorController(
     @Autowired private val simulator: Simulator,
 ) {
-    private val simulatorScope = CoroutineScope(SupervisorJob())
+    private var simulatorScope: CoroutineScope? = null
 
     @GetMapping("/profile")
     suspend fun getProfile(): Map<String, String> {
@@ -66,7 +69,9 @@ class SimulatorController(
                 "latenessSec" to simulator.getLatenessSec(),
             )
         } else {
-            simulator.start(simulatorScope)
+            // Create a new scope for each simulation run
+            simulatorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            simulator.start(simulatorScope!!)
             mapOf(
                 "status" to "started",
                 "message" to "Simulator started successfully",
@@ -86,7 +91,16 @@ class SimulatorController(
                 "profile" to simulator.getCurrentProfile().name,
             )
         } else {
+            // Stop the simulator job
             simulator.stop()
+
+            // Cancel and cleanup the scope
+            simulatorScope?.cancel()
+            simulatorScope = null
+
+            // Small delay to ensure cancellation propagates
+            delay(100)
+
             mapOf(
                 "status" to "stopped",
                 "message" to "Simulator stopped successfully",
@@ -101,6 +115,25 @@ class SimulatorController(
             "running" to simulator.isRunning(),
             "profile" to simulator.getCurrentProfile().name,
             "status" to if (simulator.isRunning()) "running" else "stopped",
+        )
+    }
+
+    @PostMapping("/sim/config")
+    suspend fun updateSimulatorConfig(
+        @RequestParam(required = false) rps: Int?,
+        @RequestParam(required = false) latenessSec: Long?,
+    ): Map<String, Any> {
+        // Update RPS if provided
+        rps?.let { simulator.setRatePerSecond(it.toDouble()) }
+
+        // Update lateness if provided
+        latenessSec?.let { simulator.setLatenessSec(it) }
+
+        return mapOf(
+            "status" to "updated",
+            "message" to "Simulator configuration updated successfully",
+            "rps" to simulator.getRatePerSecond(),
+            "latenessSec" to simulator.getLatenessSec(),
         )
     }
 

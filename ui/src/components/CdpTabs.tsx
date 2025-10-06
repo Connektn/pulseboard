@@ -73,8 +73,12 @@ export function CdpTabs({ isSimulatorRunning }: CdpTabsProps) {
 
       {/* Tab Content */}
       <div style={{ padding: 0 }}>
-        {activeTab === 'profiles' && <ProfilesList isSimulatorRunning={isSimulatorRunning} />}
-        {activeTab === 'segments' && <SegmentFeed isSimulatorRunning={isSimulatorRunning} />}
+        <div style={{ display: activeTab === 'profiles' ? 'block' : 'none' }}>
+          <ProfilesList isSimulatorRunning={isSimulatorRunning} />
+        </div>
+        <div style={{ display: activeTab === 'segments' ? 'block' : 'none' }}>
+          <SegmentFeed isSimulatorRunning={isSimulatorRunning} />
+        </div>
       </div>
     </div>
     </>

@@ -29,7 +29,9 @@ import org.springframework.stereotype.Component
  * 2. Normalize identifiers (user:, email:, anon: prefixes)
  * 3. On IDENTIFY/ALIAS: call IdentityGraph.union() for identifier pairs
  * 4. Compute canonicalId = IdentityGraph.canonicalIdFor(ids)
- * 5. Enqueue into CdpEventProcessor (K4 buffer)
+ * 5. Enqueue into CdpEventProcessor with dual watermark system:
+ *    - Processing window: 5s (micro-batching for high throughput)
+ *    - Late event grace period: 120s (accept late events beyond processing window)
  * 6. On drain (≤ watermark): process in order
  *    - Merge identifiers
  *    - Merge traits (LWW)
@@ -49,7 +51,7 @@ class CdpPipeline(
     private val logger = LoggerFactory.getLogger(javaClass)
     private val scope = CoroutineScope(Dispatchers.Default)
 
-    // Event processor with watermark and buffering
+    // Event processor with dual watermark: 5s processing window + 120s late event grace period
     private val eventProcessor = CdpEventProcessor(meterRegistry = meterRegistry)
 
     @PostConstruct

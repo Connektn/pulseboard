@@ -69,7 +69,7 @@ class CdpPipelineTest {
     @Test
     fun `should process IDENTIFY event and create profile`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(200)
+            val now = Instant.now().minusSeconds(10)
 
             val event =
                 CdpEvent(
@@ -107,7 +107,7 @@ class CdpPipelineTest {
     @Test
     fun `should emit power_user ENTER event after 5 TRACK events`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(200)
+            val now = Instant.now().minusSeconds(10)
             val userId = "u123"
 
             // Send IDENTIFY
@@ -160,7 +160,7 @@ class CdpPipelineTest {
     @Test
     fun `should merge identifiers on ALIAS event`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(200)
+            val now = Instant.now().minusSeconds(10)
 
             // First IDENTIFY with anonymousId
             val identify1 =
@@ -216,7 +216,7 @@ class CdpPipelineTest {
     @Test
     fun `LWW should prevent older trait from overriding newer trait`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(200)
+            val now = Instant.now().minusSeconds(10)
             val userId = "u123"
 
             // Event 1: Set plan=pro at T+0
@@ -270,7 +270,7 @@ class CdpPipelineTest {
     @Test
     fun `should track rolling counter for TRACK events`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(200)
+            val now = Instant.now().minusSeconds(10)
             val userId = "u123"
 
             // Send IDENTIFY
@@ -329,7 +329,7 @@ class CdpPipelineTest {
     @Test
     fun `should not emit segment events when segments unchanged`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(200)
+            val now = Instant.now().minusSeconds(10)
             val userId = "u123"
 
             // Event 1: IDENTIFY with plan=basic

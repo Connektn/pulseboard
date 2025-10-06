@@ -20,17 +20,25 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Event processor with watermark-based out-of-order handling and deduplication.
+ * Event processor with dual watermark-based out-of-order handling and deduplication.
  *
  * Features:
  * - Per-profile priority queue (min-heap by timestamp)
- * - Bounded lateness with watermark (allowedLateness=120s)
+ * - Two-tier watermark system:
+ *   * Processing watermark (processingWindow=5s) - for micro-batching under high load
+ *   * Late event watermark (lateEventGracePeriod=120s) - for handling severely late events
  * - Global ticker (1s) to drain and process events <= watermark
  * - Deduplication via Caffeine cache (TTL=10m per profile)
  * - Micrometer metrics
+ *
+ * Design for 10k+ events/sec workload:
+ * - Events within 5s of current time are processed immediately (micro-batching)
+ * - Events older than 5s but within 120s grace period are accepted but logged as late
+ * - Events older than 120s are rejected as too late
  */
 class CdpEventProcessor(
-    private val allowedLateness: Duration = Duration.ofSeconds(120),
+    private val processingWindow: Duration = Duration.ofSeconds(5),
+    private val lateEventGracePeriod: Duration = Duration.ofSeconds(120),
     private val dedupTtl: Duration = Duration.ofMinutes(10),
     private val tickerInterval: Duration = Duration.ofSeconds(1),
     meterRegistry: MeterRegistry? = null,
@@ -43,14 +51,16 @@ class CdpEventProcessor(
     // Per-profile deduplication caches
     private val dedupCaches = ConcurrentHashMap<String, Cache<String, Boolean>>()
 
-    // Watermark state
+    // Watermark state - uses processing window for micro-batching
     @Volatile
-    private var currentWatermark: Instant = Instant.now().minus(allowedLateness)
+    private var currentWatermark: Instant = Instant.now().minus(processingWindow)
 
     // Metrics
     private val bufferedEventsGauge = AtomicLong(0)
     private val processedCounter = AtomicLong(0)
     private val dedupHitsCounter = AtomicLong(0)
+    private val lateEventsCounter = AtomicLong(0)
+    private val droppedEventsCounter = AtomicLong(0)
     private val watermarkLagGauge = AtomicLong(0)
 
     // Processed event handler
@@ -104,8 +114,44 @@ class CdpEventProcessor(
                     }
                 }
 
+            Counter.builder("cdp.events.late")
+                .description("Number of late events (beyond processing window but within grace period)")
+                .register(registry)
+                .also { counter ->
+                    scope.launch {
+                        var lastValue = 0L
+                        while (isActive) {
+                            val currentValue = lateEventsCounter.get()
+                            val delta = currentValue - lastValue
+                            if (delta > 0) {
+                                counter.increment(delta.toDouble())
+                                lastValue = currentValue
+                            }
+                            delay(1000)
+                        }
+                    }
+                }
+
+            Counter.builder("cdp.events.dropped")
+                .description("Number of events dropped (beyond grace period)")
+                .register(registry)
+                .also { counter ->
+                    scope.launch {
+                        var lastValue = 0L
+                        while (isActive) {
+                            val currentValue = droppedEventsCounter.get()
+                            val delta = currentValue - lastValue
+                            if (delta > 0) {
+                                counter.increment(delta.toDouble())
+                                lastValue = currentValue
+                            }
+                            delay(1000)
+                        }
+                    }
+                }
+
             Gauge.builder("cdp.watermark.lag_ms", watermarkLagGauge) { it.get().toDouble() }
-                .description("Watermark lag in milliseconds")
+                .description("Watermark lag in milliseconds (processing window)")
                 .register(registry)
         }
     }
@@ -119,7 +165,11 @@ class CdpEventProcessor(
 
     /**
      * Submit an event for processing.
-     * The event will be buffered and processed when the watermark advances.
+     *
+     * Two-tier acceptance policy:
+     * 1. Events within processingWindow (5s): Buffered for micro-batching
+     * 2. Events within lateEventGracePeriod (120s): Accepted as late events
+     * 3. Events beyond grace period: Rejected and dropped
      */
     fun submit(
         event: CdpEvent,
@@ -131,6 +181,36 @@ class CdpEventProcessor(
             dedupHitsCounter.incrementAndGet()
             logger.debug("Duplicate event detected: eventId={}, profileId={}", event.eventId, profileId)
             return
+        }
+
+        // Check if event is too late (beyond grace period)
+        val now = Instant.now()
+        val lateEventCutoff = now.minus(lateEventGracePeriod)
+
+        if (event.ts.isBefore(lateEventCutoff)) {
+            droppedEventsCounter.incrementAndGet()
+            logger.warn(
+                "Event dropped (too late): eventId={}, profileId={}, eventTs={}, cutoff={}, lateness={}s",
+                event.eventId,
+                profileId,
+                event.ts,
+                lateEventCutoff,
+                Duration.between(event.ts, now).seconds,
+            )
+            return
+        }
+
+        // Check if event is late (beyond processing window but within grace period)
+        val processingCutoff = now.minus(processingWindow)
+        if (event.ts.isBefore(processingCutoff)) {
+            lateEventsCounter.incrementAndGet()
+            logger.info(
+                "Late event accepted: eventId={}, profileId={}, eventTs={}, lateness={}s",
+                event.eventId,
+                profileId,
+                event.ts,
+                Duration.between(event.ts, now).seconds,
+            )
         }
 
         // Mark as seen
@@ -181,13 +261,14 @@ class CdpEventProcessor(
 
     /**
      * Perform a single tick: advance watermark and drain events.
+     * Uses processingWindow for micro-batching (5s lag).
      */
     fun tick() {
-        // Advance watermark
+        // Advance watermark using processing window for micro-batching
         val now = Instant.now()
-        currentWatermark = now.minus(allowedLateness)
+        currentWatermark = now.minus(processingWindow)
 
-        // Update watermark lag metric
+        // Update watermark lag metric (should be ~5000ms for processing window)
         val lag = Duration.between(currentWatermark, now).toMillis()
         watermarkLagGauge.set(lag)
 
@@ -287,6 +368,26 @@ class CdpEventProcessor(
     fun getDedupHitsCount(): Long = dedupHitsCounter.get()
 
     /**
+     * Get late events count.
+     */
+    fun getLateEventsCount(): Long = lateEventsCounter.get()
+
+    /**
+     * Get dropped events count.
+     */
+    fun getDroppedEventsCount(): Long = droppedEventsCounter.get()
+
+    /**
+     * Clear only the buffered events (without stopping the ticker).
+     * Useful for immediate stop when simulator is stopped.
+     */
+    fun clearBuffer() {
+        eventQueues.clear()
+        val clearedCount = bufferedEventsGauge.getAndSet(0)
+        logger.info("Cleared event buffer: {} events dropped", clearedCount)
+    }
+
+    /**
      * Clear all state (for testing).
      */
     fun clear() {
@@ -296,7 +397,9 @@ class CdpEventProcessor(
         bufferedEventsGauge.set(0)
         processedCounter.set(0)
         dedupHitsCounter.set(0)
+        lateEventsCounter.set(0)
+        droppedEventsCounter.set(0)
         watermarkLagGauge.set(0)
-        currentWatermark = Instant.now().minus(allowedLateness)
+        currentWatermark = Instant.now().minus(processingWindow)
     }
 }

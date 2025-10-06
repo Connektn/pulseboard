@@ -98,6 +98,19 @@ export class ApiClient {
     return this.request<{ running: boolean; profile: string; status: string }>('/sim/status');
   }
 
+  async updateSimulatorConfig(params: { rps?: number; latenessSec?: number }): Promise<{ status: string; message: string; rps: number; latenessSec: number }> {
+    const queryParams = new URLSearchParams();
+    if (params.rps !== undefined) queryParams.append('rps', params.rps.toString());
+    if (params.latenessSec !== undefined) queryParams.append('latenessSec', params.latenessSec.toString());
+
+    const query = queryParams.toString();
+    const endpoint = query ? `/sim/config?${query}` : '/sim/config';
+
+    return this.request<{ status: string; message: string; rps: number; latenessSec: number }>(endpoint, {
+      method: 'POST',
+    });
+  }
+
   // Stats endpoint
   async getStatsOverview(): Promise<StatsOverview> {
     return this.request<StatsOverview>('/stats/overview');
@@ -118,6 +131,7 @@ export const api = {
     start: (params?: { profile?: string; rps?: number; latenessSec?: number }) => apiClient.startSimulator(params),
     stop: () => apiClient.stopSimulator(),
     status: () => apiClient.getSimulatorStatus(),
+    updateConfig: (params: { rps?: number; latenessSec?: number }) => apiClient.updateSimulatorConfig(params),
   },
   stats: {
     overview: () => apiClient.getStatsOverview(),

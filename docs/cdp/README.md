@@ -123,34 +123,65 @@ fun updateProfile(event: CdpEvent) {
 - May discard valid concurrent updates
 - No causal ordering guarantees
 
-### 4. Late Event Handling
+### 4. Dual Watermark Event Processing
 
-The CDP handles late-arriving events (events that arrive after their timestamp suggests they should have):
+The CDP uses a two-tier watermark system for handling events with different lateness characteristics:
 
 ```kotlin
-class CdpProcessor {
-    private val allowedLateness = Duration.ofMinutes(10)
-
-    fun processEvent(event: CdpEvent) {
+class CdpEventProcessor(
+    private val processingWindow: Duration = Duration.ofSeconds(5),
+    private val lateEventGracePeriod: Duration = Duration.ofSeconds(120),
+) {
+    fun submit(event: CdpEvent, profileId: String) {
         val now = Instant.now()
-        val eventAge = Duration.between(event.timestamp, now)
+        val lateEventCutoff = now.minus(lateEventGracePeriod)
 
-        if (eventAge > allowedLateness) {
-            logger.warn("Late event discarded: age=$eventAge, event=$event")
-            metrics.lateEventDiscarded.increment()
+        // Policy 1: Drop events beyond grace period
+        if (event.ts.isBefore(lateEventCutoff)) {
+            droppedEventsCounter.incrementAndGet()
+            logger.warn("Event dropped (too late): lateness={}s",
+                Duration.between(event.ts, now).seconds)
             return
         }
 
-        // Process the event normally
-        updateProfile(event)
+        // Policy 2: Accept late events with warning
+        val processingCutoff = now.minus(processingWindow)
+        if (event.ts.isBefore(processingCutoff)) {
+            lateEventsCounter.incrementAndGet()
+            logger.info("Late event accepted: lateness={}s",
+                Duration.between(event.ts, now).seconds)
+        }
+
+        // Buffer event for processing
+        eventQueues.computeIfAbsent(profileId) {
+            PriorityQueue(compareBy { it.ts })
+        }.offer(event)
     }
 }
 ```
 
-**Late Event Policy:**
-- Events up to 10 minutes late: Processed normally
-- Events older than 10 minutes: Logged and discarded
-- Metrics track late event frequency
+**Dual Watermark Policy:**
+
+1. **Processing Window (5 seconds)**:
+   - Events within 5s of current time: Buffered for micro-batching
+   - Optimized for high-intensity workloads (10k+ events/sec)
+   - Watermark advances every second
+
+2. **Late Event Grace Period (120 seconds)**:
+   - Events between 5s-120s old: Accepted as "late events"
+   - Logged with INFO level for monitoring
+   - Still processed correctly but tracked separately
+
+3. **Event Rejection**:
+   - Events older than 120s: Dropped entirely
+   - Logged with WARN level
+   - Tracked in `droppedEventsCounter` metric
+
+**Benefits:**
+- Fast processing (5s batching) for normal events
+- Handles reasonable late arrivals (up to 2 minutes)
+- Prevents unbounded buffering with hard cutoff
+- Metrics distinguish between late and dropped events
 
 ### 5. Windowed Aggregations
 
@@ -399,8 +430,12 @@ useEffect(() => {
 ### Metrics
 
 - `cdp.profiles.total`: Current number of profiles
+- `cdp.events.buffered`: Events currently buffered (waiting for watermark)
 - `cdp.events.processed`: Total events processed
-- `cdp.events.late_discarded`: Late events dropped
+- `cdp.events.late`: Late events accepted (beyond 5s, within 120s)
+- `cdp.events.dropped`: Events dropped (beyond 120s grace period)
+- `cdp.events.dedup_hits`: Duplicate events detected
+- `cdp.watermark.lag_ms`: Current watermark lag (processing window)
 - `cdp.segments.enter`: Segment ENTER events
 - `cdp.segments.exit`: Segment EXIT events
 
@@ -419,7 +454,8 @@ INFO  c.p.cdp.SegmentEngine - Segment ENTER: profile=prof-xyz, segment=power_use
 
 ```yaml
 cdp:
-  allowed-lateness: 10m          # Max event lateness before discard
+  processing-window: 5s          # Micro-batching window for normal events
+  late-event-grace: 120s         # Max lateness before event discard
   profile-stream-interval: 2s    # SSE profile update frequency
   power-user-threshold: 5        # Feature uses for power_user segment
   power-user-window: 24h         # Time window for power_user
