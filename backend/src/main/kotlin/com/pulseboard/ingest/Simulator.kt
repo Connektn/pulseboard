@@ -1,10 +1,15 @@
 package com.pulseboard.ingest
 
 import com.pulseboard.cdp.api.CdpEventBus
-import com.pulseboard.core.Event
+import com.pulseboard.core.EntityEvent
+import com.pulseboard.core.EntityPayload
 import com.pulseboard.core.Profile
 import com.pulseboard.transport.EventTransport
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -106,6 +111,7 @@ class Simulator(
     fun isRunning(): Boolean = simulatorJob?.isActive == true
 
     private suspend fun generateSaseEvents() {
+        val eventId = generateEventId(allowDuplicate = true)
         val entityId = entities.random(random)
         val eventType = chooseSaseEventType()
         val timestamp = Instant.now()
@@ -113,47 +119,62 @@ class Simulator(
         val event =
             when (eventType) {
                 "CONN_OPEN" ->
-                    Event(
+                    EntityEvent(
+                        eventId = eventId,
                         ts = timestamp,
-                        profile = Profile.SASE,
-                        type = "CONN_OPEN",
-                        entityId = entityId,
-                        value = random.nextLong(1, 100),
-                        tags =
-                            mapOf(
-                                "geo" to geoLocations.random(random),
-                                "device" to devices.random(random),
-                                "protocol" to listOf("tcp", "udp", "http", "https").random(random),
+                        payload =
+                            EntityPayload(
+                                entityId = entityId,
+                                profile = Profile.SASE,
+                                type = "CONN_OPEN",
+                                value = random.nextLong(1, 100),
+                                tags =
+                                    mapOf(
+                                        "geo" to geoLocations.random(random),
+                                        "device" to devices.random(random),
+                                        "protocol" to listOf("tcp", "udp", "http", "https").random(random),
+                                    ),
                             ),
                     )
+
                 "CONN_BYTES" ->
-                    Event(
+                    EntityEvent(
+                        eventId = eventId,
                         ts = timestamp,
-                        profile = Profile.SASE,
-                        type = "CONN_BYTES",
-                        entityId = entityId,
-                        value = random.nextLong(100, 50000),
-                        tags =
-                            mapOf(
-                                "geo" to geoLocations.random(random),
-                                "direction" to listOf("inbound", "outbound").random(random),
+                        payload =
+                            EntityPayload(
+                                entityId = entityId,
+                                profile = Profile.SASE,
+                                type = "CONN_BYTES",
+                                value = random.nextLong(100, 50000),
+                                tags =
+                                    mapOf(
+                                        "geo" to geoLocations.random(random),
+                                        "direction" to listOf("inbound", "outbound").random(random),
+                                    ),
                             ),
                     )
+
                 "LOGIN" ->
-                    Event(
+                    EntityEvent(
+                        eventId = eventId,
                         ts = timestamp,
-                        profile = Profile.SASE,
-                        type = "LOGIN",
-                        entityId = entityId,
-                        value = if (shouldGenerateFailedLogin()) 0L else 1L,
-                        tags =
-                            mapOf(
-                                "geo" to geoLocations.random(random),
-                                "device" to devices.random(random),
-                                "browser" to browsers.random(random),
-                                "result" to if (shouldGenerateFailedLogin()) "failed" else "success",
+                        payload =
+                            EntityPayload(
+                                entityId = entityId,
+                                profile = Profile.SASE,
+                                type = "LOGIN",
+                                value = if (shouldGenerateFailedLogin()) 0L else 1L,
+                                tags =
+                                    mapOf(
+                                        "geo" to geoLocations.random(random),
+                                        "device" to devices.random(random),
+                                        "browser" to browsers.random(random),
+                                        "result" to if (shouldGenerateFailedLogin()) "failed" else "success",
+                                    ),
                             ),
                     )
+
                 else -> return
             }
 
@@ -161,6 +182,7 @@ class Simulator(
     }
 
     private suspend fun generateIGamingEvents() {
+        val eventId = generateEventId(allowDuplicate = true)
         val entityId = entities.random(random)
         val eventType = chooseIGamingEventType()
         val timestamp = Instant.now()
@@ -168,50 +190,68 @@ class Simulator(
         val event =
             when (eventType) {
                 "BET_PLACED" ->
-                    Event(
+                    EntityEvent(
+                        eventId = eventId,
                         ts = timestamp,
-                        profile = Profile.IGAMING,
-                        type = "BET_PLACED",
-                        entityId = entityId,
-                        value = random.nextLong(1, 1000),
-                        tags =
-                            mapOf(
-                                "geo" to geoLocations.random(random),
-                                "device" to devices.random(random),
-                                "game" to listOf("slots", "poker", "blackjack", "roulette", "baccarat").random(random),
-                                "currency" to listOf("USD", "EUR", "GBP", "CAD").random(random),
+                        payload =
+                            EntityPayload(
+                                entityId = entityId,
+                                profile = Profile.IGAMING,
+                                type = "BET_PLACED",
+                                value = random.nextLong(1, 1000),
+                                tags =
+                                    mapOf(
+                                        "geo" to geoLocations.random(random),
+                                        "device" to devices.random(random),
+                                        "game" to
+                                            listOf("slots", "poker", "blackjack", "roulette", "baccarat").random(
+                                                random,
+                                            ),
+                                        "currency" to listOf("USD", "EUR", "GBP", "CAD").random(random),
+                                    ),
                             ),
                     )
+
                 "CASHIN" ->
-                    Event(
+                    EntityEvent(
+                        eventId = eventId,
                         ts = timestamp,
-                        profile = Profile.IGAMING,
-                        type = "CASHIN",
-                        entityId = entityId,
-                        value = random.nextLong(1000, 100000),
-                        tags =
-                            mapOf(
-                                "geo" to geoLocations.random(random),
-                                "device" to devices.random(random),
-                                "method" to listOf("card", "bank", "crypto", "ewallet").random(random),
-                                "currency" to listOf("USD", "EUR", "GBP", "CAD").random(random),
+                        payload =
+                            EntityPayload(
+                                entityId = entityId,
+                                profile = Profile.IGAMING,
+                                type = "CASHIN",
+                                value = random.nextLong(1000, 100000),
+                                tags =
+                                    mapOf(
+                                        "geo" to geoLocations.random(random),
+                                        "device" to devices.random(random),
+                                        "method" to listOf("card", "bank", "crypto", "ewallet").random(random),
+                                        "currency" to listOf("USD", "EUR", "GBP", "CAD").random(random),
+                                    ),
                             ),
                     )
+
                 "LOGIN" ->
-                    Event(
+                    EntityEvent(
+                        eventId = eventId,
                         ts = timestamp,
-                        profile = Profile.IGAMING,
-                        type = "LOGIN",
-                        entityId = entityId,
-                        value = 1L,
-                        tags =
-                            mapOf(
-                                "geo" to geoLocations.random(random),
-                                "device" to devices.random(random),
-                                "browser" to browsers.random(random),
-                                "result" to "success",
+                        payload =
+                            EntityPayload(
+                                entityId = entityId,
+                                profile = Profile.IGAMING,
+                                type = "LOGIN",
+                                value = 1L,
+                                tags =
+                                    mapOf(
+                                        "geo" to geoLocations.random(random),
+                                        "device" to devices.random(random),
+                                        "browser" to browsers.random(random),
+                                        "result" to "success",
+                                    ),
                             ),
                     )
+
                 else -> return
             }
 

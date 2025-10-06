@@ -12,12 +12,13 @@ class WindowStoreTest {
 
     @BeforeEach
     fun setup() {
-        windowStore = WindowStore(
-            defaultWindowSize = Duration.ofMinutes(5),
-            maxCacheSize = 1000L,
-            expireAfter = Duration.ofHours(1),
-            clock = fixedClock,
-        )
+        windowStore =
+            WindowStore(
+                defaultWindowSize = Duration.ofMinutes(5),
+                maxCacheSize = 1000L,
+                expireAfter = Duration.ofHours(1),
+                clock = fixedClock,
+            )
     }
 
     @Test

@@ -1,7 +1,8 @@
 package com.pulseboard.ingest
 
 import com.pulseboard.core.Alert
-import com.pulseboard.core.Event
+import com.pulseboard.core.EntityEvent
+import com.pulseboard.core.EntityPayload
 import com.pulseboard.core.Profile
 import com.pulseboard.core.Severity
 import com.pulseboard.core.StatsService
@@ -9,6 +10,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.SharedFlow
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.util.UUID.randomUUID
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -21,7 +23,7 @@ class EventBusTest {
 
         assertNotNull(eventBus.events)
         assertNotNull(eventBus.alerts)
-        assertTrue(eventBus.events is SharedFlow<Event>)
+        assertTrue(eventBus.events is SharedFlow<EntityEvent>)
         assertTrue(eventBus.alerts is SharedFlow<Alert>)
     }
 
@@ -29,11 +31,14 @@ class EventBusTest {
     fun `tryPublishEvent should return true when successful`() {
         val eventBus = EventBus(mockStatsService)
         val testEvent =
-            Event(
+            EntityEvent(
+                eventId = randomUUID().toString(),
                 ts = Instant.parse("2023-12-01T10:30:00Z"),
-                profile = Profile.SASE,
-                type = "LOGIN",
-                entityId = "user999",
+                payload = EntityPayload(
+                    profile = Profile.SASE,
+                    type = "LOGIN",
+                    entityId = "user999",
+                )
             )
 
         val result = eventBus.tryPublishEvent(testEvent)

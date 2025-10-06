@@ -1,7 +1,7 @@
 package com.pulseboard.ingest
 
 import com.pulseboard.core.Alert
-import com.pulseboard.core.Event
+import com.pulseboard.core.EntityEvent
 import com.pulseboard.core.StatsService
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -15,7 +15,7 @@ class EventBus(
     @Autowired private val statsService: StatsService,
 ) {
     private val _events =
-        MutableSharedFlow<Event>(
+        MutableSharedFlow<EntityEvent>(
             replay = 0,
             extraBufferCapacity = 1000,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -28,15 +28,15 @@ class EventBus(
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
-    val events: SharedFlow<Event> = _events.asSharedFlow()
+    val events: SharedFlow<EntityEvent> = _events.asSharedFlow()
     val alerts: SharedFlow<Alert> = _alerts.asSharedFlow()
 
-    suspend fun publishEvent(event: Event) {
+    suspend fun publishEvent(event: EntityEvent) {
         _events.emit(event)
         statsService.recordEvent()
     }
 
-    fun tryPublishEvent(event: Event): Boolean {
+    fun tryPublishEvent(event: EntityEvent): Boolean {
         val result = _events.tryEmit(event)
         if (result) {
             statsService.recordEvent()

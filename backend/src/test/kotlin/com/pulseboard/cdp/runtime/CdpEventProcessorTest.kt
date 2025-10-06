@@ -47,40 +47,40 @@ class CdpEventProcessorTest {
 
     @Test
     fun `shuffled sequence should process in timestamp order`() {
-            val profileId = "profile-1"
-            // Make events old enough to be immediately processed (beyond processing window)
-            // but within grace period (120s)
-            val baseTime = fixedClock.instant().minusSeconds(60)
+        val profileId = "profile-1"
+        // Make events old enough to be immediately processed (beyond processing window)
+        // but within grace period (120s)
+        val baseTime = fixedClock.instant().minusSeconds(60)
 
-            // Create events with timestamps in random order
-            val events =
-                listOf(
-                    createEvent("evt-3", baseTime.plusSeconds(30)),
-                    createEvent("evt-1", baseTime.plusSeconds(10)),
-                    createEvent("evt-5", baseTime.plusSeconds(50)),
-                    createEvent("evt-2", baseTime.plusSeconds(20)),
-                    createEvent("evt-4", baseTime.plusSeconds(40)),
-                )
+        // Create events with timestamps in random order
+        val events =
+            listOf(
+                createEvent("evt-3", baseTime.plusSeconds(30)),
+                createEvent("evt-1", baseTime.plusSeconds(10)),
+                createEvent("evt-5", baseTime.plusSeconds(50)),
+                createEvent("evt-2", baseTime.plusSeconds(20)),
+                createEvent("evt-4", baseTime.plusSeconds(40)),
+            )
 
-            // Submit in shuffled order
-            events.forEach { processor.submit(it, profileId) }
+        // Submit in shuffled order
+        events.forEach { processor.submit(it, profileId) }
 
-            // Run ticker to process events
-            processor.tick()
+        // Run ticker to process events
+        processor.tick()
 
-            // Verify events processed in timestamp order
-            assertEquals(5, processedEvents.size)
-            assertEquals("evt-1", processedEvents[0].eventId)
-            assertEquals("evt-2", processedEvents[1].eventId)
-            assertEquals("evt-3", processedEvents[2].eventId)
-            assertEquals("evt-4", processedEvents[3].eventId)
-            assertEquals("evt-5", processedEvents[4].eventId)
+        // Verify events processed in timestamp order
+        assertEquals(5, processedEvents.size)
+        assertEquals("evt-1", processedEvents[0].eventId)
+        assertEquals("evt-2", processedEvents[1].eventId)
+        assertEquals("evt-3", processedEvents[2].eventId)
+        assertEquals("evt-4", processedEvents[3].eventId)
+        assertEquals("evt-5", processedEvents[4].eventId)
 
-            // Verify timestamps are in ascending order
-            for (i in 1 until processedEvents.size) {
-                assertTrue(processedEvents[i - 1].ts <= processedEvents[i].ts)
-            }
+        // Verify timestamps are in ascending order
+        for (i in 1 until processedEvents.size) {
+            assertTrue(processedEvents[i - 1].ts <= processedEvents[i].ts)
         }
+    }
 
     @Test
     fun `events should be buffered until watermark advances`() =
@@ -148,7 +148,7 @@ class CdpEventProcessorTest {
     fun `duplicate eventId should be ignored`() =
         runBlocking {
             val profileId = "profile-1"
-            val baseTime = Instant.now().minusSeconds(60)
+            val baseTime = fixedClock.instant().minusSeconds(60)
 
             val event1 = createEvent("evt-duplicate", baseTime)
             val event2 = createEvent("evt-duplicate", baseTime.plusSeconds(10)) // Same ID, different timestamp
@@ -168,7 +168,7 @@ class CdpEventProcessorTest {
     fun `multiple duplicates should all be ignored`() =
         runBlocking {
             val profileId = "profile-1"
-            val baseTime = Instant.now().minusSeconds(60)
+            val baseTime = fixedClock.instant().minusSeconds(60)
 
             val event = createEvent("evt-dup", baseTime)
 
@@ -187,7 +187,7 @@ class CdpEventProcessorTest {
     @Test
     fun `duplicates across different profiles should be allowed`() =
         runBlocking {
-            val baseTime = Instant.now().minusSeconds(60)
+            val baseTime = fixedClock.instant().minusSeconds(60)
 
             val event = createEvent("evt-shared", baseTime)
 
@@ -209,7 +209,7 @@ class CdpEventProcessorTest {
     fun `events within processing window should be accepted without warning`() =
         runBlocking {
             val profileId = "profile-1"
-            val now = Instant.now()
+            val now = fixedClock.instant()
 
             // Event 3 seconds ago (within 5s processing window)
             val recentEvent = createEvent("evt-recent", now.minusSeconds(3))
@@ -224,7 +224,7 @@ class CdpEventProcessorTest {
     fun `events beyond processing window but within grace period should be marked as late`() =
         runBlocking {
             val profileId = "profile-1"
-            val now = Instant.now()
+            val now = fixedClock.instant()
 
             // Event 30 seconds ago (beyond 5s processing window, within 120s grace period)
             val lateEvent = createEvent("evt-late", now.minusSeconds(30))
@@ -239,7 +239,7 @@ class CdpEventProcessorTest {
     fun `events beyond grace period should be dropped`() =
         runBlocking {
             val profileId = "profile-1"
-            val now = Instant.now()
+            val now = fixedClock.instant()
 
             // Event 150 seconds ago (beyond 120s grace period)
             val tooLateEvent = createEvent("evt-too-late", now.minusSeconds(150))
@@ -259,7 +259,7 @@ class CdpEventProcessorTest {
     fun `multiple late and dropped events should be tracked correctly`() =
         runBlocking {
             val profileId = "profile-1"
-            val now = Instant.now()
+            val now = fixedClock.instant()
 
             // Normal event (within processing window)
             processor.submit(createEvent("evt-normal", now.minusSeconds(2)), profileId)
@@ -311,7 +311,7 @@ class CdpEventProcessorTest {
 
     @Test
     fun `events from different profiles should be processed independently`() {
-        val baseTime = Instant.now().minusSeconds(60)
+        val baseTime = fixedClock.instant().minusSeconds(60)
 
         // Submit events for different profiles
         processor.submit(createEvent("evt-p1-1", baseTime), "profile-1")
@@ -340,7 +340,7 @@ class CdpEventProcessorTest {
     @Test
     fun `metrics should track buffered and processed events`() {
         val profileId = "profile-1"
-        val baseTime = Instant.now().minusSeconds(60)
+        val baseTime = fixedClock.instant().minusSeconds(60)
 
         // Submit events
         processor.submit(createEvent("evt-1", baseTime), profileId)
@@ -361,7 +361,7 @@ class CdpEventProcessorTest {
     @Test
     fun `metrics should track dedup hits`() {
         val profileId = "profile-1"
-        val baseTime = Instant.now().minusSeconds(60)
+        val baseTime = fixedClock.instant().minusSeconds(60)
 
         val event = createEvent("evt-dup", baseTime)
 
@@ -377,7 +377,7 @@ class CdpEventProcessorTest {
     @Test
     fun `complex scenario with mixed timestamps and duplicates`() {
         val profileId = "profile-1"
-        val baseTime = Instant.now().minusSeconds(60)
+        val baseTime = fixedClock.instant().minusSeconds(60)
 
         // Create a complex sequence with out-of-order and duplicates
         val events =
@@ -408,23 +408,24 @@ class CdpEventProcessorTest {
     }
 
     @Test
-    fun `ticker should continuously process events when started`() = runBlocking {
-        processor.start()
+    fun `ticker should continuously process events when started`() =
+        runBlocking {
+            processor.start()
 
-        val profileId = "profile-1"
-        val baseTime = Instant.now().minusSeconds(60)
+            val profileId = "profile-1"
+            val baseTime = fixedClock.instant().minusSeconds(60)
 
-        // Submit events
-        processor.submit(createEvent("evt-1", baseTime), profileId)
+            // Submit events
+            processor.submit(createEvent("evt-1", baseTime), profileId)
 
-        // Wait for ticker to process
-        delay(6000) // Wait for at least one tick (5s processing window + 1s ticker)
+            // Wait for ticker to process
+            delay(6000) // Wait for at least one tick (5s processing window + 1s ticker)
 
-        // Event should be processed
-        assertTrue(processedEvents.isNotEmpty())
+            // Event should be processed
+            assertTrue(processedEvents.isNotEmpty())
 
-        processor.stop()
-    }
+            processor.stop()
+        }
 
     // === Helper Functions ===
 

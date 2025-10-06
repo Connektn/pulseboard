@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { useCdpProfiles, type ProfileSummary } from './useCdpProfiles';
-import { useSegmentFeed, type SegmentEvent } from './useSegmentFeed';
+import { useCdpProfiles } from './useCdpProfiles';
+import { useSegmentFeed } from './useSegmentFeed';
 import { SlidingWindow, UniqueCountWindow } from './slidingWindow';
 
 /**

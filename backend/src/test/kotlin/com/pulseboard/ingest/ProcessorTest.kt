@@ -1,6 +1,7 @@
 package com.pulseboard.ingest
 
-import com.pulseboard.core.Event
+import com.pulseboard.core.EntityEvent
+import com.pulseboard.core.EntityPayload
 import com.pulseboard.core.Profile
 import com.pulseboard.core.Rules
 import com.pulseboard.core.WindowStore
@@ -24,8 +25,7 @@ class ProcessorTest {
     private lateinit var mockWindowStore: WindowStore
     private lateinit var mockRules: Rules
     private lateinit var processor: Processor
-    private lateinit var eventFlow: MutableSharedFlow<Event>
-    private val testTimestamp = Instant.parse("2023-12-01T12:00:00Z")
+    private lateinit var eventFlow: MutableSharedFlow<EntityEvent>
 
     @BeforeEach
     fun setup() {
@@ -100,21 +100,4 @@ class ProcessorTest {
             stats = processor.getProcessingStats()
             assertEquals(false, stats["isRunning"])
         }
-
-    private fun createTestEvent(
-        type: String,
-        entityId: String,
-        value: Long?,
-        profile: Profile = Profile.SASE,
-        tags: Map<String, String> = emptyMap(),
-    ): Event {
-        return Event(
-            ts = testTimestamp,
-            profile = profile,
-            type = type,
-            entityId = entityId,
-            value = value,
-            tags = tags,
-        )
-    }
 }

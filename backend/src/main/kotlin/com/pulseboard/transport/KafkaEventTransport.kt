@@ -1,6 +1,6 @@
 package com.pulseboard.transport
 
-import com.pulseboard.core.Event
+import com.pulseboard.core.EntityEvent
 import com.pulseboard.ingest.EventBus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component
 @Component
 @ConditionalOnProperty(value = ["transport.mode"], havingValue = "kafka")
 class KafkaEventTransport(
-    private val kafkaTemplate: KafkaTemplate<String, Event>,
+    private val kafkaTemplate: KafkaTemplate<String, EntityEvent>,
     private val eventBus: EventBus,
     @Value("\${spring.kafka.topics.events}") private val eventsTopic: String,
 ) : EventTransport {
@@ -32,9 +32,9 @@ class KafkaEventTransport(
     private val jobScope: CoroutineScope
         get() = CoroutineScope(Job() + Dispatchers.IO)
 
-    override suspend fun publishEvent(event: Event) {
+    override suspend fun publishEvent(event: EntityEvent) {
         try {
-            kafkaTemplate.send(eventsTopic, event.entityId, event)
+            kafkaTemplate.send(eventsTopic, event.payload.entityId, event)
                 .whenComplete { result, exception ->
                     if (exception != null) {
                         logger.error("Failed to send event to Kafka", exception)
@@ -53,7 +53,7 @@ class KafkaEventTransport(
         }
     }
 
-    override fun subscribeToEvents(): Flow<Event> {
+    override fun subscribeToEvents(): Flow<EntityEvent> {
         return eventBus.events
     }
 
@@ -62,7 +62,7 @@ class KafkaEventTransport(
         groupId = "\${spring.kafka.consumer.group-id}",
     )
     fun consumeEvent(
-        record: ConsumerRecord<String, Event>,
+        record: ConsumerRecord<String, EntityEvent>,
         acknowledgment: Acknowledgment,
     ) {
         try {

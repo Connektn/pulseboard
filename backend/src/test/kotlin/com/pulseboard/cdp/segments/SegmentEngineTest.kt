@@ -26,11 +26,12 @@ class SegmentEngineTest {
 
     @BeforeEach
     fun setup() {
-        rollingCounter = RollingCounter(
-            window = Duration.ofHours(24),
-            bucketSize = Duration.ofMinutes(1),
-            clock = fixedClock,
-        )
+        rollingCounter =
+            RollingCounter(
+                window = Duration.ofHours(24),
+                bucketSize = Duration.ofMinutes(1),
+                clock = fixedClock,
+            )
         engine =
             SegmentEngine(
                 rollingCounter = rollingCounter,
@@ -177,7 +178,7 @@ class SegmentEngineTest {
 
     @Test
     fun `reengage rule should match at exact threshold boundary`() {
-        val now = Instant.now()
+        val now = fixedClock.instant()
         // Just over 10 minutes (threshold is > 10m, not >=)
         val lastSeen = now.minus(Duration.ofMinutes(10).plusSeconds(1))
 

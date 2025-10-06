@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { type Alert } from '../lib/useSSE';
+import type { Alert } from '../lib/types';
 
 interface AlertsTableProps {
   alerts: Alert[];

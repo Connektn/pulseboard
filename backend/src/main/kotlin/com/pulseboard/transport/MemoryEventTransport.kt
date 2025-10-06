@@ -1,6 +1,6 @@
 package com.pulseboard.transport
 
-import com.pulseboard.core.Event
+import com.pulseboard.core.EntityEvent
 import com.pulseboard.ingest.EventBus
 import kotlinx.coroutines.flow.Flow
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -15,11 +15,11 @@ import org.springframework.stereotype.Component
 class MemoryEventTransport(
     private val eventBus: EventBus,
 ) : EventTransport {
-    override suspend fun publishEvent(event: Event) {
+    override suspend fun publishEvent(event: EntityEvent) {
         eventBus.publishEvent(event)
     }
 
-    override fun subscribeToEvents(): Flow<Event> {
+    override fun subscribeToEvents(): Flow<EntityEvent> {
         return eventBus.events
     }
 

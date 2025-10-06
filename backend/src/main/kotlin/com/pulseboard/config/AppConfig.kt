@@ -12,7 +12,6 @@ import java.time.Clock
  */
 @Configuration
 class AppConfig {
-
     @Bean
     fun clock(): Clock = Clock.systemUTC()
 }

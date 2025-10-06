@@ -31,18 +31,18 @@ class CdpPipelineTest {
     private lateinit var eventProcessor: CdpEventProcessor
     private lateinit var pipeline: CdpPipeline
     private lateinit var meterRegistry: SimpleMeterRegistry
-    private lateinit var clock: Clock
 
     @BeforeEach
     fun setup() {
         eventBus = CdpEventBus()
         identityGraph = IdentityGraph()
         profileStore = ProfileStore()
-        rollingCounter = RollingCounter(
-            window = Duration.ofHours(24),
-            bucketSize = Duration.ofMinutes(1),
-            clock = fixedClock,
-        )
+        rollingCounter =
+            RollingCounter(
+                window = Duration.ofHours(24),
+                bucketSize = Duration.ofMinutes(1),
+                clock = fixedClock,
+            )
         meterRegistry = SimpleMeterRegistry()
 
         segmentEngine =
@@ -54,15 +54,13 @@ class CdpPipelineTest {
                 powerUserWindow = Duration.ofHours(24),
             )
 
-        clock = Clock.systemUTC()
-
         eventProcessor =
             CdpEventProcessor(
                 processingWindow = Duration.ofSeconds(5),
                 lateEventGracePeriod = Duration.ofSeconds(120),
                 dedupTtl = Duration.ofMinutes(10),
                 tickerInterval = Duration.ofSeconds(1),
-                clock = clock,
+                clock = fixedClock,
                 meterRegistry = testMeterRegistry,
             )
 
@@ -80,18 +78,20 @@ class CdpPipelineTest {
     }
 
     @AfterEach
-    fun teardown() {
-        pipeline.stop()
-        profileStore.clear()
-        identityGraph.clear()
-        segmentEngine.clear()
-        pipeline.getEventProcessor().clear()
-    }
+    fun teardown() =
+        runBlocking {
+            pipeline.stop()
+            delay(100) // Wait for async operations to complete
+            profileStore.clear()
+            identityGraph.clear()
+            segmentEngine.clear()
+            pipeline.getEventProcessor().clear()
+        }
 
     @Test
     fun `should process IDENTIFY event and create profile`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(10)
+            val now = fixedClock.instant().minusSeconds(10)
 
             val event =
                 CdpEvent(
@@ -129,7 +129,7 @@ class CdpPipelineTest {
     @Test
     fun `should emit power_user ENTER event after 5 TRACK events`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(10)
+            val now = fixedClock.instant().minusSeconds(10)
             val userId = "u123"
 
             // Send IDENTIFY
@@ -182,7 +182,7 @@ class CdpPipelineTest {
     @Test
     fun `should merge identifiers on ALIAS event`() =
         runBlocking {
-            val now = clock.instant().minusSeconds(10)
+            val now = fixedClock.instant().minusSeconds(10)
 
             // First IDENTIFY with anonymousId
             val identify1 =
@@ -207,7 +207,7 @@ class CdpPipelineTest {
             val aliasEvent =
                 CdpEvent(
                     eventId = "evt-2",
-                    ts = now.plusSeconds(10),
+                    ts = now.plusSeconds(3),
                     type = CdpEventType.ALIAS,
                     userId = "u123",
                     email = null,
@@ -238,7 +238,7 @@ class CdpPipelineTest {
     @Test
     fun `LWW should prevent older trait from overriding newer trait`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(10)
+            val now = fixedClock.instant().minusSeconds(10)
             val userId = "u123"
 
             // Event 1: Set plan=pro at T+0
@@ -292,7 +292,7 @@ class CdpPipelineTest {
     @Test
     fun `should track rolling counter for TRACK events`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(10)
+            val now = fixedClock.instant().minusSeconds(10)
             val userId = "u123"
 
             // Send IDENTIFY
@@ -351,7 +351,7 @@ class CdpPipelineTest {
     @Test
     fun `should not emit segment events when segments unchanged`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(10)
+            val now = fixedClock.instant().minusSeconds(10)
             val userId = "u123"
 
             // Event 1: IDENTIFY with plan=basic

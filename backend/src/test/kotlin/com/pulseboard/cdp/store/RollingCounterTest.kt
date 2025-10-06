@@ -268,9 +268,10 @@ class RollingCounterTest {
         val eventName = "Event"
 
         // Create events in different 1-minute buckets
-        val bucket1 = Instant.parse("2025-10-04T10:00:00Z")
-        val bucket2 = Instant.parse("2025-10-04T10:01:00Z")
-        val bucket3 = Instant.parse("2025-10-04T10:02:00Z")
+        val now = fixedClock.instant()
+        val bucket1 = now.minusSeconds(120)
+        val bucket2 = now.minusSeconds(60)
+        val bucket3 = now
 
         counter.append(profileId, eventName, bucket1)
         counter.append(profileId, eventName, bucket1.plusSeconds(30)) // Same bucket
@@ -290,9 +291,10 @@ class RollingCounterTest {
         val eventName = "Event"
 
         // Events exactly at bucket boundaries
-        val bucketStart = Instant.parse("2025-10-04T10:00:00Z")
-        val bucketEnd = Instant.parse("2025-10-04T10:00:59Z")
-        val nextBucket = Instant.parse("2025-10-04T10:01:00Z")
+        val now = fixedClock.instant()
+        val bucketStart = now.minusSeconds(60)
+        val bucketEnd = bucketStart.plusSeconds(59)
+        val nextBucket = bucketStart.plusSeconds(60)
 
         counter.append(profileId, eventName, bucketStart)
         counter.append(profileId, eventName, bucketEnd)

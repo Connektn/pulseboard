@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useEventSource } from './useEventSource';
+import type { ProfileIdentifiers } from './types';
 
-// ProfileIdentifiers matching backend model
-export interface ProfileIdentifiers {
-  userIds: string[];
-  emails: string[];
-  anonymousIds: string[];
-}
+// Re-export for backward compatibility
+export type { ProfileIdentifiers } from './types';
 
 // ProfileSummary matching backend model
 export interface ProfileSummary {

@@ -1,4 +1,9 @@
 // API Client for Pulseboard backend
+import type { Profile, SimulatorResponse, StatsOverview } from './types';
+
+// Re-export types for backward compatibility
+export type { Profile, SimulatorResponse, StatsOverview } from './types';
+
 const BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
 
 // Type definitions for API responses
@@ -7,25 +12,11 @@ export interface HealthResponse {
 }
 
 export interface ProfileResponse {
-  profile: 'SASE' | 'IGAMING' | 'CDP';
+  profile: Profile;
 }
 
 export interface ProfileRequest {
-  profile: 'SASE' | 'IGAMING' | 'CDP';
-}
-
-export interface SimulatorResponse {
-  status: 'started' | 'stopped' | 'running' | 'not_running' | 'already_running' | 'already_stopped' | 'error';
-  message: string;
-  profile: 'SASE' | 'IGAMING' | 'CDP';
-  rps?: number;
-  latenessSec?: number;
-}
-
-export interface StatsOverview {
-  eventsPerMin: number;
-  alertsPerMin: number;
-  uptimeSec: number;
+  profile: Profile;
 }
 
 // API client class
@@ -66,7 +57,7 @@ export class ApiClient {
     return this.request<ProfileResponse>('/profile');
   }
 
-  async setProfile(profile: 'SASE' | 'IGAMING' | 'CDP'): Promise<ProfileResponse> {
+  async setProfile(profile: Profile): Promise<ProfileResponse> {
     return this.request<ProfileResponse>('/profile', {
       method: 'POST',
       body: JSON.stringify({ profile }),
@@ -125,7 +116,7 @@ export const api = {
   health: () => apiClient.getHealth(),
   profile: {
     get: () => apiClient.getProfile(),
-    set: (profile: 'SASE' | 'IGAMING' | 'CDP') => apiClient.setProfile(profile),
+    set: (profile: Profile) => apiClient.setProfile(profile),
   },
   simulator: {
     start: (params?: { profile?: string; rps?: number; latenessSec?: number }) => apiClient.startSimulator(params),

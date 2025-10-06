@@ -1,21 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import type { Alert, SSEMessage } from './types';
 
-// Alert type definition matching backend
-export interface Alert {
-  id: string;
-  ts: string; // ISO string from backend
-  rule: string;
-  entityId: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
-  evidence: Record<string, unknown>;
-}
+// Re-export types for backward compatibility
+export type { Alert, SSEMessage } from './types';
 
-// SSE message types
-export interface SSEMessage {
+// SSE message types for alerts endpoint
+export interface AlertSSEMessage extends SSEMessage<Alert> {
   type: 'alert' | 'heartbeat' | 'connection';
-  data?: Alert;
-  timestamp?: string;
-  message?: string;
 }
 
 // Hook state interface
@@ -23,7 +14,7 @@ export interface SSEState {
   alerts: Alert[];
   connected: boolean;
   error: string | null;
-  lastMessage: SSEMessage | null;
+  lastMessage: AlertSSEMessage | null;
 }
 
 // Hook options
@@ -47,7 +38,7 @@ export function useSSE(options: UseSSEOptions = {}): SSEState {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastMessage, setLastMessage] = useState<SSEMessage | null>(null);
+  const [lastMessage, setLastMessage] = useState<AlertSSEMessage | null>(null);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -78,7 +69,7 @@ export function useSSE(options: UseSSEOptions = {}): SSEState {
       if (!mountedRef.current) return;
 
       try {
-        const message: SSEMessage = JSON.parse(event.data);
+        const message: AlertSSEMessage = JSON.parse(event.data);
         setLastMessage(message);
 
         // Handle different message types

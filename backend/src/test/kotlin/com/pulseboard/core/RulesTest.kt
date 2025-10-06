@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Duration
 import java.time.Instant
+import java.util.UUID.randomUUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -418,7 +419,13 @@ class RulesTest {
             coEvery { mockWindowStore.getEwma(any(), any()) } returns 0.0
             coEvery { mockWindowStore.updateEwma(any(), any(), any(), any()) } returns 1.0
             coEvery { mockWindowStore.countIn(any(), any(), any()) } returns 0L
-            coEvery { mockWindowStore.sumIn("user789", "CONN_BYTES", Duration.ofSeconds(30)) } returns 1000L // Exactly at threshold
+            coEvery {
+                mockWindowStore.sumIn(
+                    "user789",
+                    "CONN_BYTES",
+                    Duration.ofSeconds(30)
+                )
+            } returns 1000L // Exactly at threshold
 
             val alerts = rules.evaluateAll(event)
             val exfilAlert = alerts.find { it.rule == "R4_EXFIL" }
@@ -497,14 +504,17 @@ class RulesTest {
         value: Long?,
         profile: Profile = Profile.SASE,
         tags: Map<String, String> = emptyMap(),
-    ): Event {
-        return Event(
+    ): EntityEvent {
+        return EntityEvent(
+            eventId = randomUUID().toString(),
             ts = testTimestamp,
-            profile = profile,
-            type = type,
-            entityId = entityId,
-            value = value,
-            tags = tags,
+            payload = EntityPayload(
+                entityId = entityId,
+                profile = profile,
+                type = type,
+                value = value,
+                tags = tags,
+            )
         )
     }
 }

@@ -1,6 +1,6 @@
 package com.pulseboard.ingest
 
-import com.pulseboard.core.Event
+import com.pulseboard.core.EntityEvent
 import com.pulseboard.core.Rules
 import com.pulseboard.core.WindowStore
 import com.pulseboard.transport.EventTransport
@@ -76,13 +76,13 @@ class Processor(
      * 2. Evaluate rules against the event
      * 3. Publish any triggered alerts
      */
-    private suspend fun processEvent(event: Event) {
+    private suspend fun processEvent(event: EntityEvent) {
         try {
             logger.debug(
                 "Processing event: type={}, entityId={}, profile={}, ts={}",
-                event.type,
-                event.entityId,
-                event.profile,
+                event.payload.type,
+                event.payload.entityId,
+                event.payload.profile,
                 event.ts,
             )
 
@@ -119,8 +119,8 @@ class Processor(
         } catch (e: Exception) {
             logger.error(
                 "Error processing event: type={}, entityId={}, error={}",
-                event.type,
-                event.entityId,
+                event.payload.type,
+                event.payload.entityId,
                 e.message,
                 e,
             )
@@ -131,25 +131,25 @@ class Processor(
     /**
      * Update the window store with event data
      */
-    private fun updateWindowStore(event: Event) {
+    private fun updateWindowStore(event: EntityEvent) {
         try {
             // Add the event to the appropriate time series window
             // Use value if present, otherwise default to 1 for counting
-            val value = event.value ?: 1L
-            windowStore.append(event.entityId, event.type, event.ts, value)
+            val value = event.payload.value ?: 1L
+            windowStore.append(event.payload.entityId, event.payload.type, event.ts, value)
 
             logger.trace(
                 "Updated window store: entityId={}, type={}, value={}, ts={}",
-                event.entityId,
-                event.type,
+                event.payload.entityId,
+                event.payload.type,
                 value,
                 event.ts,
             )
         } catch (e: Exception) {
             logger.error(
                 "Error updating window store for event: entityId={}, type={}, error={}",
-                event.entityId,
-                event.type,
+                event.payload.entityId,
+                event.payload.type,
                 e.message,
                 e,
             )

@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useEventSource, type SSEMessage } from './useEventSource';
+import { useEventSource } from './useEventSource';
+import type { SegmentEvent } from './types';
 
-// Segment event types
-export type SegmentAction = 'ENTER' | 'EXIT';
-
-export interface SegmentEvent {
-  ts: string; // ISO timestamp
-  profileId: string;
-  segment: string; // Changed from segmentName to match backend
-  action: SegmentAction;
-}
+// Re-export for backward compatibility
+export type { SegmentEvent, SegmentAction } from './types';
 
 // Hook state
 export interface SegmentFeedState {

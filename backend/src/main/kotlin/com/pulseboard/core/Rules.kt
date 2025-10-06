@@ -11,7 +11,7 @@ class Rules(
     /**
      * Evaluate all rules against an event and return any triggered alerts
      */
-    suspend fun evaluateAll(event: Event): List<Alert> {
+    suspend fun evaluateAll(event: EntityEvent): List<Alert> {
         val alerts = mutableListOf<Alert>()
 
         // R1: Velocity Spike
@@ -24,7 +24,7 @@ class Rules(
         evaluateGeoDeviceMismatch(event)?.let { alerts.add(it) }
 
         // R4: Exfil (SASE only)
-        if (event.profile == Profile.SASE) {
+        if (event.payload.profile == Profile.SASE) {
             evaluateExfil(event)?.let { alerts.add(it) }
         }
 
@@ -34,9 +34,9 @@ class Rules(
     /**
      * R1 Velocity Spike: rate_now > 3×avg_5m && rate_now >= 20/min
      */
-    private suspend fun evaluateVelocitySpike(event: Event): Alert? {
-        val rateNow = windowStore.ratePerMin(event.entityId, event.type)
-        val avg5m = windowStore.avgOverLast(event.entityId, event.type, 5)
+    private suspend fun evaluateVelocitySpike(event: EntityEvent): Alert? {
+        val rateNow = windowStore.ratePerMin(event.payload.entityId, event.payload.type)
+        val avg5m = windowStore.avgOverLast(event.payload.entityId, event.payload.type, 5)
         val threshold = avg5m * 3.0
 
         if (rateNow > threshold && rateNow >= 20.0) {
@@ -44,15 +44,15 @@ class Rules(
                 id = generateAlertId(),
                 ts = event.ts,
                 rule = "R1_VELOCITY_SPIKE",
-                entityId = event.entityId,
+                entityId = event.payload.entityId,
                 severity = determineSeverity(rateNow, threshold),
                 evidence =
                     mapOf(
                         "rate_now" to rateNow,
                         "avg_5m" to avg5m,
                         "threshold" to threshold,
-                        "event_type" to event.type,
-                        "profile" to event.profile.name,
+                        "event_type" to event.payload.type,
+                        "profile" to event.payload.profile.name,
                     ),
             )
         }
@@ -62,21 +62,21 @@ class Rules(
     /**
      * R2 Value Spike: value_now > 4×EWMA && count_60s >= 5
      */
-    private suspend fun evaluateValueSpike(event: Event): Alert? {
-        val value = event.value ?: return null // Skip events without values
-        val ewma = windowStore.getEwma(event.entityId, event.type)
+    private suspend fun evaluateValueSpike(event: EntityEvent): Alert? {
+        val value = event.payload.value ?: return null // Skip events without values
+        val ewma = windowStore.getEwma(event.payload.entityId, event.payload.type)
 
         // Update EWMA with current value
-        val updatedEwma = windowStore.updateEwma(event.entityId, event.type, value.toDouble())
+        val updatedEwma = windowStore.updateEwma(event.payload.entityId, event.payload.type, value.toDouble())
         val threshold = updatedEwma * 4.0
-        val count60s = windowStore.countIn(event.entityId, event.type, Duration.ofSeconds(60))
+        val count60s = windowStore.countIn(event.payload.entityId, event.payload.type, Duration.ofSeconds(60))
 
         if (value.toDouble() > threshold && count60s >= 5) {
             return Alert(
                 id = generateAlertId(),
                 ts = event.ts,
                 rule = "R2_VALUE_SPIKE",
-                entityId = event.entityId,
+                entityId = event.payload.entityId,
                 severity = determineSeverity(value.toDouble(), threshold),
                 evidence =
                     mapOf(
@@ -84,8 +84,8 @@ class Rules(
                         "ewma" to updatedEwma,
                         "threshold" to threshold,
                         "count_60s" to count60s,
-                        "event_type" to event.type,
-                        "profile" to event.profile.name,
+                        "event_type" to event.payload.type,
+                        "profile" to event.payload.profile.name,
                     ),
             )
         }
@@ -95,21 +95,21 @@ class Rules(
     /**
      * R3 Geo/Device Mismatch: same entity, conflicting geo or device tags within 2 minutes
      */
-    private suspend fun evaluateGeoDeviceMismatch(event: Event): Alert? {
-        val currentGeo = event.tags["geo"]
-        val currentDevice = event.tags["device"]
+    private suspend fun evaluateGeoDeviceMismatch(event: EntityEvent): Alert? {
+        val currentGeo = event.payload.tags["geo"]
+        val currentDevice = event.payload.tags["device"]
 
         if (currentGeo == null && currentDevice == null) {
             return null // No geo or device info to check
         }
 
         // Check recent events for this entity to find conflicts
-        val recentEvents = getRecentEvents(event.entityId, Duration.ofMinutes(2))
+        val recentEvents = getRecentEvents(event.payload.entityId, Duration.ofMinutes(2))
         val conflicts = mutableMapOf<String, Any?>()
 
         recentEvents.forEach { recentEvent ->
-            val recentGeo = recentEvent.tags["geo"]
-            val recentDevice = recentEvent.tags["device"]
+            val recentGeo = recentEvent.payload.tags["geo"]
+            val recentDevice = recentEvent.payload.tags["device"]
 
             // Check for geo conflicts
             if (currentGeo != null && recentGeo != null && currentGeo != recentGeo) {
@@ -137,15 +137,15 @@ class Rules(
                 id = generateAlertId(),
                 ts = event.ts,
                 rule = "R3_GEO_DEVICE_MISMATCH",
-                entityId = event.entityId,
+                entityId = event.payload.entityId,
                 severity = Severity.MEDIUM,
                 evidence =
                     mapOf(
                         "current_geo" to currentGeo,
                         "current_device" to currentDevice,
                         "conflicts" to conflicts,
-                        "event_type" to event.type,
-                        "profile" to event.profile.name,
+                        "event_type" to event.payload.type,
+                        "profile" to event.payload.profile.name,
                         "window_minutes" to 2,
                     ),
             )
@@ -156,27 +156,27 @@ class Rules(
     /**
      * R4 Exfil (SASE): sum_30s > P95(last 1h) - fallback to constant threshold
      */
-    private suspend fun evaluateExfil(event: Event): Alert? {
-        val value = event.value ?: return null
-        val sum30s = windowStore.sumIn(event.entityId, event.type, Duration.ofSeconds(30))
+    private suspend fun evaluateExfil(event: EntityEvent): Alert? {
+        val value = event.payload.value ?: return null
+        val sum30s = windowStore.sumIn(event.payload.entityId, event.payload.type, Duration.ofSeconds(30))
 
         // Fallback P95 threshold - in a real system this would be calculated from historical data
-        val p95Threshold = calculateP95Fallback(event.entityId, event.type)
+        val p95Threshold = calculateP95Fallback(event.payload.entityId, event.payload.type)
 
         if (sum30s > p95Threshold) {
             return Alert(
                 id = generateAlertId(),
                 ts = event.ts,
                 rule = "R4_EXFIL",
-                entityId = event.entityId,
+                entityId = event.payload.entityId,
                 severity = Severity.HIGH,
                 evidence =
                     mapOf(
                         "sum_30s" to sum30s,
                         "p95_threshold" to p95Threshold,
                         "current_value" to value,
-                        "event_type" to event.type,
-                        "profile" to event.profile.name,
+                        "event_type" to event.payload.type,
+                        "profile" to event.payload.profile.name,
                         "window_seconds" to 30,
                     ),
             )
@@ -207,7 +207,7 @@ class Rules(
     private fun getRecentEvents(
         entityId: String,
         window: Duration,
-    ): List<Event> {
+    ): List<EntityEvent> {
         // For this implementation, we'll use a simplified approach
         // In a real system, this would query a cache of recent events
         // For now, return empty list to avoid complex state management

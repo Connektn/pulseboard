@@ -18,7 +18,6 @@ class WindowStore(
     @Value("\${window-store.cache-expiration:10m}") expireAfter: Duration,
     private val clock: Clock,
 ) {
-
     // Caches for different data structures
     private val timeSeriesCache: Cache<WindowKey, TimeSeriesWindow> =
         Caffeine.newBuilder()

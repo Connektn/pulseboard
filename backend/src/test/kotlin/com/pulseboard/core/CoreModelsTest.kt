@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.util.UUID.randomUUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -19,39 +20,45 @@ class CoreModelsTest {
     @Test
     fun `Event should serialize and deserialize correctly`() {
         val event =
-            Event(
+            EntityEvent(
+                eventId = randomUUID().toString(),
                 ts = Instant.parse("2023-12-01T10:30:00Z"),
-                profile = Profile.SASE,
-                type = "CONN_OPEN",
-                entityId = "user123",
-                value = 42L,
-                tags = mapOf("geo" to "US", "device" to "mobile"),
+                payload = EntityPayload(
+                    entityId = "user123",
+                    profile = Profile.SASE,
+                    type = "CONN_OPEN",
+                    value = 42L,
+                    tags = mapOf("geo" to "US", "device" to "mobile"),
+                )
             )
 
         val json = objectMapper.writeValueAsString(event)
         assertNotNull(json)
 
-        val deserializedEvent: Event = objectMapper.readValue(json)
+        val deserializedEvent: EntityEvent = objectMapper.readValue(json)
         assertEquals(event, deserializedEvent)
     }
 
     @Test
     fun `Event should serialize and deserialize with minimal fields`() {
         val event =
-            Event(
+            EntityEvent(
+                eventId = randomUUID().toString(),
                 ts = Instant.parse("2023-12-01T10:30:00Z"),
-                profile = Profile.IGAMING,
-                type = "BET_PLACED",
-                entityId = "user456",
+                payload = EntityPayload(
+                    profile = Profile.IGAMING,
+                    type = "BET_PLACED",
+                    entityId = "user456",
+                )
             )
 
         val json = objectMapper.writeValueAsString(event)
         assertNotNull(json)
 
-        val deserializedEvent: Event = objectMapper.readValue(json)
+        val deserializedEvent: EntityEvent = objectMapper.readValue(json)
         assertEquals(event, deserializedEvent)
-        assertEquals(null, deserializedEvent.value)
-        assertEquals(emptyMap(), deserializedEvent.tags)
+        assertEquals(null, deserializedEvent.payload.value)
+        assertEquals(emptyMap(), deserializedEvent.payload.tags)
     }
 
     @Test
