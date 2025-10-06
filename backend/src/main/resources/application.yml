@@ -47,3 +47,41 @@ cors:
 # Transport configuration
 transport:
   mode: kafka  # memory | kafka
+
+# Window Store configuration
+window-store:
+  # Time window size in minutes for aggregating events
+  default-size: 5m
+  # Maximum number of events to cache in memory
+  max-cache-size: 10000
+  # Time after which events expire from the cache
+  cache-expiration: 10m
+
+# Event Processor configuration
+event-processor:
+  # Time window size for processing events
+  window-size: 5s
+  # Grace period for processing late events
+  grace-period: 2m
+  # Time to live for deduplication of events
+  dedup-ttl: 10m
+  # Each tick is an interval for processing a batch of events
+  ticker-interval: 1s
+
+# Rolling Counter configuration
+rolling-counter:
+  # Size of the rolling window
+  window-size: 24h
+  # Size of each bucket in the rolling window
+  bucket-size: 1m
+
+# Segment Engine configuration
+segment-engine:
+  # Threshold of inactivity to re-engage segments
+  reengage-inactivity-threshold: 10m
+  # Threshold of event count to classify a user as a power user
+  power-user-threshold: 5
+  # Time window to evaluate power user status
+  power-user-window: 24h
+  
+  

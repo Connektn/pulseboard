@@ -4,6 +4,7 @@ import com.pulseboard.cdp.model.CdpProfile
 import com.pulseboard.cdp.model.ProfileIdentifiers
 import com.pulseboard.cdp.model.SegmentAction
 import com.pulseboard.cdp.store.RollingCounter
+import com.pulseboard.fixedClock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
@@ -25,10 +26,15 @@ class SegmentEngineTest {
 
     @BeforeEach
     fun setup() {
-        rollingCounter = RollingCounter()
+        rollingCounter = RollingCounter(
+            window = Duration.ofHours(24),
+            bucketSize = Duration.ofMinutes(1),
+            clock = fixedClock,
+        )
         engine =
             SegmentEngine(
                 rollingCounter = rollingCounter,
+                clock = fixedClock,
                 reengageInactivityThreshold = Duration.ofMinutes(10),
                 powerUserThreshold = 5,
                 powerUserWindow = Duration.ofHours(24),

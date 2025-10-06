@@ -3,6 +3,7 @@ package com.pulseboard.ingest
 import com.pulseboard.core.Event
 import com.pulseboard.core.Rules
 import com.pulseboard.core.WindowStore
+import com.pulseboard.transport.EventTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
@@ -15,7 +16,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class Processor(
-    private val eventTransport: com.pulseboard.transport.EventTransport,
+    private val eventTransport: EventTransport,
     private val eventBus: EventBus,
     private val windowStore: WindowStore,
     private val rules: Rules,

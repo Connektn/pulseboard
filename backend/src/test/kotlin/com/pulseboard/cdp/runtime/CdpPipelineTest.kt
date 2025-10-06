@@ -7,12 +7,15 @@ import com.pulseboard.cdp.model.CdpEventType
 import com.pulseboard.cdp.segments.SegmentEngine
 import com.pulseboard.cdp.store.ProfileStore
 import com.pulseboard.cdp.store.RollingCounter
+import com.pulseboard.fixedClock
+import com.pulseboard.testMeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.assertEquals
@@ -25,23 +28,42 @@ class CdpPipelineTest {
     private lateinit var profileStore: ProfileStore
     private lateinit var rollingCounter: RollingCounter
     private lateinit var segmentEngine: SegmentEngine
+    private lateinit var eventProcessor: CdpEventProcessor
     private lateinit var pipeline: CdpPipeline
     private lateinit var meterRegistry: SimpleMeterRegistry
+    private lateinit var clock: Clock
 
     @BeforeEach
     fun setup() {
         eventBus = CdpEventBus()
         identityGraph = IdentityGraph()
         profileStore = ProfileStore()
-        rollingCounter = RollingCounter()
+        rollingCounter = RollingCounter(
+            window = Duration.ofHours(24),
+            bucketSize = Duration.ofMinutes(1),
+            clock = fixedClock,
+        )
         meterRegistry = SimpleMeterRegistry()
 
         segmentEngine =
             SegmentEngine(
                 rollingCounter = rollingCounter,
+                clock = fixedClock,
                 reengageInactivityThreshold = Duration.ofMinutes(10),
                 powerUserThreshold = 5,
                 powerUserWindow = Duration.ofHours(24),
+            )
+
+        clock = Clock.systemUTC()
+
+        eventProcessor =
+            CdpEventProcessor(
+                processingWindow = Duration.ofSeconds(5),
+                lateEventGracePeriod = Duration.ofSeconds(120),
+                dedupTtl = Duration.ofMinutes(10),
+                tickerInterval = Duration.ofSeconds(1),
+                clock = clock,
+                meterRegistry = testMeterRegistry,
             )
 
         pipeline =
@@ -51,7 +73,7 @@ class CdpPipelineTest {
                 profileStore = profileStore,
                 rollingCounter = rollingCounter,
                 segmentEngine = segmentEngine,
-                meterRegistry = meterRegistry,
+                eventProcessor = eventProcessor,
             )
 
         pipeline.start()
@@ -160,7 +182,7 @@ class CdpPipelineTest {
     @Test
     fun `should merge identifiers on ALIAS event`() =
         runBlocking {
-            val now = Instant.now().minusSeconds(10)
+            val now = clock.instant().minusSeconds(10)
 
             // First IDENTIFY with anonymousId
             val identify1 =

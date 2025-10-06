@@ -1,10 +1,12 @@
 package com.pulseboard.cdp.store
 
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.TreeMap
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -18,8 +20,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Component
 class RollingCounter(
-    private val window: Duration = Duration.ofHours(24),
-    private val bucketSize: Duration = Duration.ofMinutes(1),
+    @Value("\${rolling-counter.window-size:24h}") private val window: Duration,
+    @Value("\${rolling-counter.bucket-size:1m}") private val bucketSize: Duration,
+    private val clock: Clock,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -82,7 +85,7 @@ class RollingCounter(
         val profileCounters = counters[profileId] ?: return 0L
         val buckets = profileCounters[name] ?: return 0L
 
-        val now = Instant.now()
+        val now = clock.instant()
         val cutoff = now.minus(window)
         val cutoffBucket = toBucketTimestamp(cutoff)
 
@@ -113,7 +116,7 @@ class RollingCounter(
      * @param profileId Optional profile ID to evict for (if null, evicts all)
      */
     fun evictOldBuckets(profileId: String? = null) {
-        val now = Instant.now()
+        val now = clock.instant()
         val cutoff = now.minus(window)
         val cutoffBucket = toBucketTimestamp(cutoff)
 
@@ -165,13 +168,6 @@ class RollingCounter(
     }
 
     /**
-     * Get all event names for a profile (for testing/debugging).
-     */
-    fun getEventNames(profileId: String): Set<String> {
-        return counters[profileId]?.keys?.toSet() ?: emptySet()
-    }
-
-    /**
      * Get bucket count for a profile and event name (for testing).
      */
     fun getBucketCount(
@@ -186,25 +182,5 @@ class RollingCounter(
      */
     fun clear() {
         counters.clear()
-    }
-
-    /**
-     * Get total number of profiles tracked.
-     */
-    fun getProfileCount(): Int = counters.size
-
-    /**
-     * Get all buckets for a profile and event name (for testing).
-     */
-    fun getBuckets(
-        profileId: String,
-        name: String,
-    ): Map<Long, Long> {
-        val profileCounters = counters[profileId] ?: return emptyMap()
-        val buckets = profileCounters[name] ?: return emptyMap()
-
-        synchronized(buckets) {
-            return TreeMap(buckets)
-        }
     }
 }

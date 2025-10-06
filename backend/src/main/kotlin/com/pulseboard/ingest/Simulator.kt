@@ -1,12 +1,10 @@
 package com.pulseboard.ingest
 
+import com.pulseboard.cdp.api.CdpEventBus
 import com.pulseboard.core.Event
 import com.pulseboard.core.Profile
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import com.pulseboard.transport.EventTransport
+import kotlinx.coroutines.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -14,15 +12,14 @@ import kotlin.random.Random
 
 @Component
 class Simulator(
-    @Autowired private val eventTransport: com.pulseboard.transport.EventTransport,
-    @Autowired private val cdpEventBus: com.pulseboard.cdp.api.CdpEventBus,
+    @Autowired private val eventTransport: EventTransport,
+    @Autowired private val cdpEventBus: CdpEventBus,
 ) {
     private var simulatorJob: Job? = null
     private var currentProfile: Profile = Profile.SASE
 
     // Configuration
     private var ratePerSecond = 10.0
-    private val burstFactor = 2.0
     private var latenessSec = 90L
     private val random = Random(System.currentTimeMillis())
 

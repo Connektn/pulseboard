@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.pulseboard.fixedClock
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Instant
@@ -103,7 +104,7 @@ class CdpModelsTest {
         val event =
             CdpEvent(
                 eventId = "",
-                ts = Instant.now(),
+                ts = fixedClock.instant(),
                 type = CdpEventType.IDENTIFY,
                 userId = "user-123",
             )
@@ -116,7 +117,7 @@ class CdpModelsTest {
         val event =
             CdpEvent(
                 eventId = "evt-123",
-                ts = Instant.now(),
+                ts = fixedClock.instant(),
                 type = CdpEventType.IDENTIFY,
             )
         val exception = assertThrows<IllegalArgumentException> { event.validate() }
@@ -128,7 +129,7 @@ class CdpModelsTest {
         val event =
             CdpEvent(
                 eventId = "evt-123",
-                ts = Instant.now(),
+                ts = fixedClock.instant(),
                 type = CdpEventType.TRACK,
                 userId = "user-123",
             )

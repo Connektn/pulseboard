@@ -7,6 +7,7 @@ import com.pulseboard.cdp.model.SegmentEvent
 import com.pulseboard.cdp.segments.SegmentEngine
 import com.pulseboard.cdp.store.ProfileStore
 import com.pulseboard.cdp.store.RollingCounter
+import com.pulseboard.fixedClock
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -15,7 +16,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.test.web.reactive.server.WebTestClient
 import reactor.test.StepVerifier
 import java.time.Duration
-import java.time.Instant
 
 class CdpControllerTest {
     private lateinit var mockSegmentEngine: SegmentEngine
@@ -100,7 +100,7 @@ class CdpControllerTest {
 
     @Test
     fun `profiles endpoint should emit profile summaries`() {
-        val now = Instant.now()
+        val now = fixedClock.instant()
         val profile1 =
             CdpProfile(
                 profileId = "profile-1",
@@ -138,7 +138,7 @@ class CdpControllerTest {
 
     @Test
     fun `profiles endpoint should respect top 20 limit`() {
-        val now = Instant.now()
+        val now = fixedClock.instant()
         val profiles =
             (1..30).associate { i ->
                 val profileId = "profile-$i"
@@ -173,7 +173,7 @@ class CdpControllerTest {
 
     @Test
     fun `profiles endpoint should sort by lastSeen descending`() {
-        val now = Instant.now()
+        val now = fixedClock.instant()
         val profile1 =
             CdpProfile(
                 profileId = "profile-1",
@@ -219,7 +219,7 @@ class CdpControllerTest {
 
     @Test
     fun `profiles endpoint should not re-emit unchanged summaries`() {
-        val now = Instant.now()
+        val now = fixedClock.instant()
         val profile1 =
             CdpProfile(
                 profileId = "profile-1",

@@ -8,7 +8,6 @@ import com.pulseboard.cdp.model.ProfileIdentifiers
 import com.pulseboard.cdp.segments.SegmentEngine
 import com.pulseboard.cdp.store.ProfileStore
 import com.pulseboard.cdp.store.RollingCounter
-import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
@@ -46,13 +45,10 @@ class CdpPipeline(
     private val profileStore: ProfileStore,
     private val rollingCounter: RollingCounter,
     private val segmentEngine: SegmentEngine,
-    private val meterRegistry: MeterRegistry,
+    private val eventProcessor: CdpEventProcessor,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val scope = CoroutineScope(Dispatchers.Default)
-
-    // Event processor with dual watermark: 5s processing window + 120s late event grace period
-    private val eventProcessor = CdpEventProcessor(meterRegistry = meterRegistry)
 
     @PostConstruct
     fun start() {

@@ -2,18 +2,22 @@ package com.pulseboard.core
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.TimeUnit
 
 @Component
-class WindowStore {
+class WindowStore(
     // Configuration
-    private val defaultWindowSize = Duration.ofMinutes(5)
-    private val maxCacheSize = 10000L
-    private val expireAfter = Duration.ofHours(1)
+    @Value("\${window-store.default-size:5m}") private val defaultWindowSize: Duration,
+    @Value("\${window-store.max-cache-size:10000}") maxCacheSize: Long,
+    @Value("\${window-store.cache-expiration:10m}") expireAfter: Duration,
+    private val clock: Clock,
+) {
 
     // Caches for different data structures
     private val timeSeriesCache: Cache<WindowKey, TimeSeriesWindow> =
@@ -56,7 +60,7 @@ class WindowStore {
         val key = WindowKey(entityId, type)
         val window = timeSeriesCache.getIfPresent(key) ?: return 0.0
 
-        val now = Instant.now()
+        val now = clock.instant()
         val oneMinuteAgo = now.minus(Duration.ofMinutes(1))
 
         val count = window.countInRange(oneMinuteAgo, now)
@@ -74,7 +78,7 @@ class WindowStore {
         val key = WindowKey(entityId, type)
         val window = timeSeriesCache.getIfPresent(key) ?: return 0L
 
-        val now = Instant.now()
+        val now = clock.instant()
         val start = now.minus(duration)
 
         return window.sumInRange(start, now)
@@ -91,7 +95,7 @@ class WindowStore {
         val key = WindowKey(entityId, type)
         val window = timeSeriesCache.getIfPresent(key) ?: return 0L
 
-        val now = Instant.now()
+        val now = clock.instant()
         val start = now.minus(duration)
 
         return window.countInRange(start, now)
@@ -107,11 +111,11 @@ class WindowStore {
         alpha: Double = 0.1,
     ): Double {
         val key = EwmaKey(entityId, type)
-        val state = ewmaCache.get(key) { EwmaState(value, Instant.now()) }
+        val state = ewmaCache.get(key) { EwmaState(value, clock.instant()) }
 
         // Update EWMA: ewma = alpha * current_value + (1 - alpha) * previous_ewma
         val newEwma = alpha * value + (1 - alpha) * state.value
-        val newState = EwmaState(newEwma, Instant.now())
+        val newState = EwmaState(newEwma, clock.instant())
 
         ewmaCache.put(key, newState)
         return newEwma
@@ -195,8 +199,6 @@ class WindowStore {
                 !point.timestamp.isBefore(start) && !point.timestamp.isAfter(end)
             }.sumOf { it.value }
         }
-
-        fun getDataPoints(): List<DataPoint> = data.toList()
 
         fun size(): Int = data.size
     }

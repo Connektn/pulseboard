@@ -8,9 +8,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 
 /**
  * Segment engine for evaluating profile membership in segments.
@@ -22,10 +23,11 @@ import java.time.Instant
  */
 @Component
 class SegmentEngine(
+    @Value("\${segment-engine.reengage-inactivity-threshold:10m}") private val reengageInactivityThreshold: Duration,
+    @Value("\${segment-engine.power-user-threshold:5}") private val powerUserThreshold: Int,
+    @Value("\${segment-engine.power-user-window:24h}") private val powerUserWindow: Duration,
     private val rollingCounter: RollingCounter,
-    private val reengageInactivityThreshold: Duration = Duration.ofMinutes(10),
-    private val powerUserThreshold: Int = 5,
-    private val powerUserWindow: Duration = Duration.ofHours(24),
+    private val clock: Clock,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -82,7 +84,7 @@ class SegmentEngine(
         val entered = currentSegments - oldSegments
         val exited = oldSegments - currentSegments
 
-        val now = Instant.now()
+        val now = clock.instant()
 
         // Emit ENTER events
         entered.forEach { segment ->
@@ -143,16 +145,9 @@ class SegmentEngine(
      * now - lastSeen > 10m (configurable)
      */
     private fun needsReengagement(profile: CdpProfile): Boolean {
-        val now = Instant.now()
+        val now = clock.instant()
         val inactivityDuration = Duration.between(profile.lastSeen, now)
         return inactivityDuration > reengageInactivityThreshold
-    }
-
-    /**
-     * Get previous segments for a profile (for testing).
-     */
-    fun getPreviousSegments(profileId: String): Set<String> {
-        return previousSegments[profileId] ?: emptySet()
     }
 
     /**

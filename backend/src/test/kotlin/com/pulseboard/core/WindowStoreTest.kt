@@ -1,9 +1,9 @@
 package com.pulseboard.core
 
+import com.pulseboard.fixedClock
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Duration
-import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -12,14 +12,19 @@ class WindowStoreTest {
 
     @BeforeEach
     fun setup() {
-        windowStore = WindowStore()
+        windowStore = WindowStore(
+            defaultWindowSize = Duration.ofMinutes(5),
+            maxCacheSize = 1000L,
+            expireAfter = Duration.ofHours(1),
+            clock = fixedClock,
+        )
     }
 
     @Test
     fun `should append and retrieve basic metrics`() {
         val entityId = "user123"
         val type = "LOGIN"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Append some data points
         windowStore.append(entityId, type, now.minusSeconds(30), 1L)
@@ -39,7 +44,7 @@ class WindowStoreTest {
     fun `should calculate rate per minute correctly`() {
         val entityId = "user456"
         val type = "CONN_OPEN"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add 5 events in the last minute
         repeat(5) { i ->
@@ -54,7 +59,7 @@ class WindowStoreTest {
     fun `should prune old data beyond window`() {
         val entityId = "user789"
         val type = "BET_PLACED"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add old data (beyond 5-minute default window)
         windowStore.append(entityId, type, now.minus(Duration.ofMinutes(10)), 1L)
@@ -85,7 +90,7 @@ class WindowStoreTest {
     fun `should calculate sum with different values`() {
         val entityId = "user999"
         val type = "CASHIN"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         windowStore.append(entityId, type, now.minusSeconds(50), 100L)
         windowStore.append(entityId, type, now.minusSeconds(30), 250L)
@@ -102,7 +107,7 @@ class WindowStoreTest {
     fun `should calculate average correctly`() {
         val entityId = "user111"
         val type = "CONN_BYTES"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         windowStore.append(entityId, type, now.minusSeconds(50), 100L)
         windowStore.append(entityId, type, now.minusSeconds(30), 200L)
@@ -138,7 +143,7 @@ class WindowStoreTest {
 
     @Test
     fun `should handle multiple entity types independently`() {
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Entity 1, Type A
         windowStore.append("entity1", "typeA", now.minusSeconds(30), 10L)
@@ -165,18 +170,24 @@ class WindowStoreTest {
     fun `should handle time range queries correctly`() {
         val entityId = "timeTest"
         val type = "EVENT"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add events at specific recent times (all within the 5-minute window)
+        // Note: WindowStore prunes data on append based on defaultWindowSize (5 minutes)
+        // Events are appended with their timestamps, then pruned if older than timestamp - 5 minutes
         windowStore.append(entityId, type, now.minus(Duration.ofMinutes(4)), 1L)
         windowStore.append(entityId, type, now.minus(Duration.ofMinutes(3)), 2L)
         windowStore.append(entityId, type, now.minus(Duration.ofMinutes(1)), 3L)
         windowStore.append(entityId, type, now.minusSeconds(30), 4L)
 
         // Count in different time ranges
+        // All 4 events should be kept (they're all within 5 minutes of their own timestamps)
         assertEquals(4L, windowStore.countIn(entityId, type, Duration.ofMinutes(5)))
-        assertEquals(3L, windowStore.countIn(entityId, type, Duration.ofMinutes(4)))
+        // Range [now-4min, now] is inclusive on both ends, so includes event at now-4min
+        assertEquals(4L, windowStore.countIn(entityId, type, Duration.ofMinutes(4)))
+        // Range [now-2min, now] includes events at -1min and -30s
         assertEquals(2L, windowStore.countIn(entityId, type, Duration.ofMinutes(2)))
+        // Range [now-45s, now] includes only event at -30s
         assertEquals(1L, windowStore.countIn(entityId, type, Duration.ofSeconds(45)))
     }
 
@@ -184,7 +195,7 @@ class WindowStoreTest {
     fun `should clear all caches`() {
         val entityId = "testClear"
         val type = "CLEAR_TEST"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add some data
         windowStore.append(entityId, type, now, 100L)
@@ -204,7 +215,7 @@ class WindowStoreTest {
     fun `should handle precision in time calculations`() {
         val entityId = "precisionTest"
         val type = "PRECISION"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add events with millisecond precision (all recent)
         windowStore.append(entityId, type, now.minusMillis(500), 1L)
@@ -222,7 +233,7 @@ class WindowStoreTest {
     @Test
     fun `TimeSeriesWindow should handle concurrent operations safely`() {
         val window = WindowStore.TimeSeriesWindow()
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add data points
         window.append(now.minusSeconds(60), 1L)
@@ -257,7 +268,7 @@ class WindowStoreTest {
     fun `should handle rate calculation with single data point`() {
         val entityId = "single"
         val type = "SINGLE"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         windowStore.append(entityId, type, now.minusSeconds(30), 1L)
 
@@ -269,7 +280,7 @@ class WindowStoreTest {
     fun `should calculate accurate rate per minute with fractional minutes`() {
         val entityId = "fractional"
         val type = "FRAC"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add 6 events in 30 seconds (should be 12/min rate)
         repeat(6) { i ->
@@ -313,7 +324,7 @@ class WindowStoreTest {
     fun `should handle very large sums without overflow`() {
         val entityId = "largeSum"
         val type = "LARGE"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add large values
         windowStore.append(entityId, type, now.minusSeconds(50), Long.MAX_VALUE / 4)
@@ -328,7 +339,7 @@ class WindowStoreTest {
     fun `should handle negative values correctly`() {
         val entityId = "negative"
         val type = "NEG"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         windowStore.append(entityId, type, now.minusSeconds(50), -100L)
         windowStore.append(entityId, type, now.minusSeconds(30), -50L)
@@ -348,22 +359,23 @@ class WindowStoreTest {
     fun `should handle zero duration queries gracefully`() {
         val entityId = "zeroDuration"
         val type = "ZERO"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         windowStore.append(entityId, type, now, 100L)
 
         val count = windowStore.countIn(entityId, type, Duration.ZERO)
-        assertEquals(0L, count) // Nothing should be within zero duration
+        // With fixed clock, an event at exactly 'now' is included in the range [now, now]
+        assertEquals(1L, count)
 
         val sum = windowStore.sumIn(entityId, type, Duration.ZERO)
-        assertEquals(0L, sum)
+        assertEquals(100L, sum)
     }
 
     @Test
     fun `should handle very short durations accurately`() {
         val entityId = "shortDuration"
         val type = "SHORT"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add events with millisecond precision
         windowStore.append(entityId, type, now.minusMillis(1), 10L)
@@ -382,7 +394,7 @@ class WindowStoreTest {
     fun `should maintain data integrity after multiple prune operations`() {
         val entityId = "pruneTest"
         val type = "PRUNE"
-        val now = Instant.now()
+        val now = fixedClock.instant()
 
         // Add data spread over a longer time period
         repeat(20) { i ->

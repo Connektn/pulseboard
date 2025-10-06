@@ -1,6 +1,7 @@
 package com.pulseboard.cdp.store
 
 import com.pulseboard.cdp.model.ProfileIdentifiers
+import com.pulseboard.fixedClock
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -222,7 +223,7 @@ class ProfileStoreTest {
     @Test
     fun `should clear all state`() {
         store.getOrCreate("profile-1")
-        store.mergeTraits("profile-1", mapOf("plan" to "pro"), Instant.now())
+        store.mergeTraits("profile-1", mapOf("plan" to "pro"), fixedClock.instant())
 
         assertEquals(1, store.size())
 

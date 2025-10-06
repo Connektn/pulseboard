@@ -12,6 +12,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.PriorityQueue
@@ -36,12 +39,14 @@ import java.util.concurrent.atomic.AtomicLong
  * - Events older than 5s but within 120s grace period are accepted but logged as late
  * - Events older than 120s are rejected as too late
  */
+@Component
 class CdpEventProcessor(
-    private val processingWindow: Duration = Duration.ofSeconds(5),
-    private val lateEventGracePeriod: Duration = Duration.ofSeconds(120),
-    private val dedupTtl: Duration = Duration.ofMinutes(10),
-    private val tickerInterval: Duration = Duration.ofSeconds(1),
-    meterRegistry: MeterRegistry? = null,
+    @Value("\${event-processor.window-size:5s}") private val processingWindow: Duration,
+    @Value("\${event-processor.grace-period:2m}") private val lateEventGracePeriod: Duration,
+    @Value("\${event-processor.dedup-ttl:10m}") private val dedupTtl: Duration,
+    @Value("\${event-processor.ticker-interval:1s}") private val tickerInterval: Duration,
+    private val clock: Clock,
+    meterRegistry: MeterRegistry,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -51,9 +56,9 @@ class CdpEventProcessor(
     // Per-profile deduplication caches
     private val dedupCaches = ConcurrentHashMap<String, Cache<String, Boolean>>()
 
-    // Watermark state - uses processing window for micro-batching
+    // Watermark state - uses a processing window for micro-batching
     @Volatile
-    private var currentWatermark: Instant = Instant.now().minus(processingWindow)
+    private var currentWatermark: Instant = clock.instant().minus(processingWindow)
 
     // Metrics
     private val bufferedEventsGauge = AtomicLong(0)
@@ -72,88 +77,86 @@ class CdpEventProcessor(
 
     init {
         // Register metrics if registry provided
-        meterRegistry?.let { registry ->
-            Gauge.builder("cdp.events.buffered", bufferedEventsGauge) { it.get().toDouble() }
-                .description("Number of events currently buffered")
-                .register(registry)
+        Gauge.builder("cdp.events.buffered", bufferedEventsGauge) { it.get().toDouble() }
+            .description("Number of events currently buffered")
+            .register(meterRegistry)
 
-            Counter.builder("cdp.events.processed")
-                .description("Total number of events processed")
-                .register(registry)
-                .also { counter ->
-                    // Sync counter with internal counter
-                    scope.launch {
-                        var lastValue = 0L
-                        while (isActive) {
-                            val currentValue = processedCounter.get()
-                            val delta = currentValue - lastValue
-                            if (delta > 0) {
-                                counter.increment(delta.toDouble())
-                                lastValue = currentValue
-                            }
-                            delay(1000)
+        Counter.builder("cdp.events.processed")
+            .description("Total number of events processed")
+            .register(meterRegistry)
+            .also { counter ->
+                // Sync counter with internal counter
+                scope.launch {
+                    var lastValue = 0L
+                    while (isActive) {
+                        val currentValue = processedCounter.get()
+                        val delta = currentValue - lastValue
+                        if (delta > 0) {
+                            counter.increment(delta.toDouble())
+                            lastValue = currentValue
                         }
+                        delay(1000)
                     }
                 }
+            }
 
-            Counter.builder("cdp.events.dedup_hits")
-                .description("Number of duplicate events detected")
-                .register(registry)
-                .also { counter ->
-                    scope.launch {
-                        var lastValue = 0L
-                        while (isActive) {
-                            val currentValue = dedupHitsCounter.get()
-                            val delta = currentValue - lastValue
-                            if (delta > 0) {
-                                counter.increment(delta.toDouble())
-                                lastValue = currentValue
-                            }
-                            delay(1000)
+        Counter.builder("cdp.events.dedup_hits")
+            .description("Number of duplicate events detected")
+            .register(meterRegistry)
+            .also { counter ->
+                scope.launch {
+                    var lastValue = 0L
+                    while (isActive) {
+                        val currentValue = dedupHitsCounter.get()
+                        val delta = currentValue - lastValue
+                        if (delta > 0) {
+                            counter.increment(delta.toDouble())
+                            lastValue = currentValue
                         }
+                        delay(1000)
                     }
                 }
+            }
 
-            Counter.builder("cdp.events.late")
-                .description("Number of late events (beyond processing window but within grace period)")
-                .register(registry)
-                .also { counter ->
-                    scope.launch {
-                        var lastValue = 0L
-                        while (isActive) {
-                            val currentValue = lateEventsCounter.get()
-                            val delta = currentValue - lastValue
-                            if (delta > 0) {
-                                counter.increment(delta.toDouble())
-                                lastValue = currentValue
-                            }
-                            delay(1000)
+        Counter.builder("cdp.events.late")
+            .description("Number of late events (beyond processing window but within grace period)")
+            .register(meterRegistry)
+            .also { counter ->
+                scope.launch {
+                    var lastValue = 0L
+                    while (isActive) {
+                        val currentValue = lateEventsCounter.get()
+                        val delta = currentValue - lastValue
+                        if (delta > 0) {
+                            counter.increment(delta.toDouble())
+                            lastValue = currentValue
                         }
+                        delay(1000)
                     }
                 }
+            }
 
-            Counter.builder("cdp.events.dropped")
-                .description("Number of events dropped (beyond grace period)")
-                .register(registry)
-                .also { counter ->
-                    scope.launch {
-                        var lastValue = 0L
-                        while (isActive) {
-                            val currentValue = droppedEventsCounter.get()
-                            val delta = currentValue - lastValue
-                            if (delta > 0) {
-                                counter.increment(delta.toDouble())
-                                lastValue = currentValue
-                            }
-                            delay(1000)
+        Counter.builder("cdp.events.dropped")
+            .description("Number of events dropped (beyond grace period)")
+            .register(meterRegistry)
+            .also { counter ->
+                scope.launch {
+                    var lastValue = 0L
+                    while (isActive) {
+                        val currentValue = droppedEventsCounter.get()
+                        val delta = currentValue - lastValue
+                        if (delta > 0) {
+                            counter.increment(delta.toDouble())
+                            lastValue = currentValue
                         }
+                        delay(1000)
                     }
                 }
+            }
 
-            Gauge.builder("cdp.watermark.lag_ms", watermarkLagGauge) { it.get().toDouble() }
-                .description("Watermark lag in milliseconds (processing window)")
-                .register(registry)
-        }
+        Gauge.builder("cdp.watermark.lag_ms", watermarkLagGauge) { it.get().toDouble() }
+            .description("Watermark lag in milliseconds (processing window)")
+            .register(meterRegistry)
     }
 
     /**
@@ -184,7 +187,7 @@ class CdpEventProcessor(
         }
 
         // Check if event is too late (beyond grace period)
-        val now = Instant.now()
+        val now = clock.instant()
         val lateEventCutoff = now.minus(lateEventGracePeriod)
 
         if (event.ts.isBefore(lateEventCutoff)) {
@@ -265,7 +268,7 @@ class CdpEventProcessor(
      */
     fun tick() {
         // Advance watermark using processing window for micro-batching
-        val now = Instant.now()
+        val now = clock.instant()
         currentWatermark = now.minus(processingWindow)
 
         // Update watermark lag metric (should be ~5000ms for processing window)
@@ -378,16 +381,6 @@ class CdpEventProcessor(
     fun getDroppedEventsCount(): Long = droppedEventsCounter.get()
 
     /**
-     * Clear only the buffered events (without stopping the ticker).
-     * Useful for immediate stop when simulator is stopped.
-     */
-    fun clearBuffer() {
-        eventQueues.clear()
-        val clearedCount = bufferedEventsGauge.getAndSet(0)
-        logger.info("Cleared event buffer: {} events dropped", clearedCount)
-    }
-
-    /**
      * Clear all state (for testing).
      */
     fun clear() {
@@ -400,6 +393,6 @@ class CdpEventProcessor(
         lateEventsCounter.set(0)
         droppedEventsCounter.set(0)
         watermarkLagGauge.set(0)
-        currentWatermark = Instant.now().minus(processingWindow)
+        currentWatermark = clock.instant().minus(processingWindow)
     }
 }

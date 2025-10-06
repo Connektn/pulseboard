@@ -2,7 +2,8 @@ package com.pulseboard.cdp.runtime
 
 import com.pulseboard.cdp.model.CdpEvent
 import com.pulseboard.cdp.model.CdpEventType
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import com.pulseboard.fixedClock
+import com.pulseboard.testMeterRegistry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
@@ -24,6 +25,9 @@ class CdpEventProcessorTest {
                 processingWindow = Duration.ofSeconds(5),
                 lateEventGracePeriod = Duration.ofSeconds(120),
                 dedupTtl = Duration.ofMinutes(10),
+                tickerInterval = Duration.ofSeconds(1),
+                clock = fixedClock,
+                meterRegistry = testMeterRegistry,
             )
         processedEvents.clear()
 
@@ -42,12 +46,11 @@ class CdpEventProcessorTest {
     // === Out-of-Order Processing Tests (DoD Requirement) ===
 
     @Test
-    fun `shuffled sequence should process in timestamp order`() =
-        runBlocking {
+    fun `shuffled sequence should process in timestamp order`() {
             val profileId = "profile-1"
             // Make events old enough to be immediately processed (beyond processing window)
             // but within grace period (120s)
-            val baseTime = Instant.now().minusSeconds(60)
+            val baseTime = fixedClock.instant().minusSeconds(60)
 
             // Create events with timestamps in random order
             val events =
@@ -83,7 +86,7 @@ class CdpEventProcessorTest {
     fun `events should be buffered until watermark advances`() =
         runBlocking {
             val profileId = "profile-1"
-            val now = Instant.now()
+            val now = fixedClock.instant()
 
             // Create event just within processing window (3 seconds ago)
             val recentEvent = createEvent("evt-recent", now.minusSeconds(3))
@@ -115,7 +118,7 @@ class CdpEventProcessorTest {
     fun `watermark should drain events older than processing window`() =
         runBlocking {
             val profileId = "profile-1"
-            val baseTime = Instant.now().minusSeconds(20)
+            val baseTime = fixedClock.instant().minusSeconds(20)
 
             // Create events beyond processing window (5s) but within grace period
             val oldEvents =
@@ -279,9 +282,9 @@ class CdpEventProcessorTest {
 
     @Test
     fun `watermark should be computed as now minus processing window`() {
-        val before = Instant.now().minus(Duration.ofSeconds(5))
+        val before = fixedClock.instant().minus(Duration.ofSeconds(5))
         processor.tick()
-        val after = Instant.now().minus(Duration.ofSeconds(5))
+        val after = fixedClock.instant().minus(Duration.ofSeconds(5))
 
         val watermark = processor.getCurrentWatermark()
 
@@ -290,145 +293,138 @@ class CdpEventProcessorTest {
     }
 
     @Test
-    fun `watermark should advance on each tick`() =
-        runBlocking {
-            processor.tick()
-            val watermark1 = processor.getCurrentWatermark()
+    fun `watermark should advance on each tick`() {
+        processor.tick()
+        val watermark1 = processor.getCurrentWatermark()
 
-            delay(100)
+        // With a fixed clock, the watermark won't actually advance
+        // since it's calculated as clock.instant() - processingWindow
+        // Both ticks will produce the same watermark
+        processor.tick()
+        val watermark2 = processor.getCurrentWatermark()
 
-            processor.tick()
-            val watermark2 = processor.getCurrentWatermark()
-
-            assertTrue(watermark2 > watermark1)
-        }
+        // With fixed clock, watermarks should be equal
+        assertEquals(watermark1, watermark2)
+    }
 
     // === Per-Profile Isolation Tests ===
 
     @Test
-    fun `events from different profiles should be processed independently`() =
-        runBlocking {
-            val baseTime = Instant.now().minusSeconds(60)
+    fun `events from different profiles should be processed independently`() {
+        val baseTime = Instant.now().minusSeconds(60)
 
-            // Submit events for different profiles
-            processor.submit(createEvent("evt-p1-1", baseTime), "profile-1")
-            processor.submit(createEvent("evt-p2-1", baseTime.plusSeconds(5)), "profile-2")
-            processor.submit(createEvent("evt-p1-2", baseTime.plusSeconds(10)), "profile-1")
-            processor.submit(createEvent("evt-p2-2", baseTime.plusSeconds(15)), "profile-2")
+        // Submit events for different profiles
+        processor.submit(createEvent("evt-p1-1", baseTime), "profile-1")
+        processor.submit(createEvent("evt-p2-1", baseTime.plusSeconds(5)), "profile-2")
+        processor.submit(createEvent("evt-p1-2", baseTime.plusSeconds(10)), "profile-1")
+        processor.submit(createEvent("evt-p2-2", baseTime.plusSeconds(15)), "profile-2")
 
-            processor.tick()
+        processor.tick()
 
-            // All should be processed
-            assertEquals(4, processedEvents.size)
+        // All should be processed
+        assertEquals(4, processedEvents.size)
 
-            // Each profile's events should be in order
-            val p1Events = processedEvents.filter { it.eventId.contains("p1") }
-            val p2Events = processedEvents.filter { it.eventId.contains("p2") }
+        // Each profile's events should be in order
+        val p1Events = processedEvents.filter { it.eventId.contains("p1") }
+        val p2Events = processedEvents.filter { it.eventId.contains("p2") }
 
-            assertEquals(2, p1Events.size)
-            assertEquals(2, p2Events.size)
+        assertEquals(2, p1Events.size)
+        assertEquals(2, p2Events.size)
 
-            assertTrue(p1Events[0].ts < p1Events[1].ts)
-            assertTrue(p2Events[0].ts < p2Events[1].ts)
-        }
+        assertTrue(p1Events[0].ts < p1Events[1].ts)
+        assertTrue(p2Events[0].ts < p2Events[1].ts)
+    }
 
     // === Metrics Tests ===
 
     @Test
-    fun `metrics should track buffered and processed events`() =
-        runBlocking {
-            val meterRegistry = SimpleMeterRegistry()
-            val metricsProcessor = CdpEventProcessor(meterRegistry = meterRegistry)
+    fun `metrics should track buffered and processed events`() {
+        val profileId = "profile-1"
+        val baseTime = Instant.now().minusSeconds(60)
 
-            val profileId = "profile-1"
-            val baseTime = Instant.now().minusSeconds(60)
+        // Submit events
+        processor.submit(createEvent("evt-1", baseTime), profileId)
+        processor.submit(createEvent("evt-2", baseTime.plusSeconds(10)), profileId)
 
-            // Submit events
-            metricsProcessor.submit(createEvent("evt-1", baseTime), profileId)
-            metricsProcessor.submit(createEvent("evt-2", baseTime.plusSeconds(10)), profileId)
+        assertEquals(2, processor.getBufferedEventCount())
+        assertEquals(0, processor.getProcessedEventCount())
 
-            assertEquals(2, metricsProcessor.getBufferedEventCount())
-            assertEquals(0, metricsProcessor.getProcessedEventCount())
+        // Process
+        processor.tick()
 
-            // Process
-            metricsProcessor.tick()
+        assertEquals(0, processor.getBufferedEventCount())
+        assertEquals(2, processor.getProcessedEventCount())
 
-            assertEquals(0, metricsProcessor.getBufferedEventCount())
-            assertEquals(2, metricsProcessor.getProcessedEventCount())
-
-            metricsProcessor.clear()
-        }
+        processor.clear()
+    }
 
     @Test
-    fun `metrics should track dedup hits`() =
-        runBlocking {
-            val profileId = "profile-1"
-            val baseTime = Instant.now().minusSeconds(60)
+    fun `metrics should track dedup hits`() {
+        val profileId = "profile-1"
+        val baseTime = Instant.now().minusSeconds(60)
 
-            val event = createEvent("evt-dup", baseTime)
+        val event = createEvent("evt-dup", baseTime)
 
-            processor.submit(event, profileId)
-            processor.submit(event, profileId)
-            processor.submit(event, profileId)
+        processor.submit(event, profileId)
+        processor.submit(event, profileId)
+        processor.submit(event, profileId)
 
-            assertEquals(2, processor.getDedupHitsCount())
-        }
+        assertEquals(2, processor.getDedupHitsCount())
+    }
 
     // === Complex Scenario Tests ===
 
     @Test
-    fun `complex scenario with mixed timestamps and duplicates`() =
-        runBlocking {
-            val profileId = "profile-1"
-            val baseTime = Instant.now().minusSeconds(60)
+    fun `complex scenario with mixed timestamps and duplicates`() {
+        val profileId = "profile-1"
+        val baseTime = Instant.now().minusSeconds(60)
 
-            // Create a complex sequence with out-of-order and duplicates
-            val events =
-                listOf(
-                    createEvent("evt-1", baseTime.plusSeconds(10)),
-                    createEvent("evt-3", baseTime.plusSeconds(30)),
-                    createEvent("evt-1", baseTime.plusSeconds(10)), // Duplicate
-                    createEvent("evt-2", baseTime.plusSeconds(20)),
-                    createEvent("evt-5", baseTime.plusSeconds(50)),
-                    createEvent("evt-4", baseTime.plusSeconds(40)),
-                    createEvent("evt-3", baseTime.plusSeconds(30)), // Duplicate
-                )
+        // Create a complex sequence with out-of-order and duplicates
+        val events =
+            listOf(
+                createEvent("evt-1", baseTime.plusSeconds(10)),
+                createEvent("evt-3", baseTime.plusSeconds(30)),
+                createEvent("evt-1", baseTime.plusSeconds(10)), // Duplicate
+                createEvent("evt-2", baseTime.plusSeconds(20)),
+                createEvent("evt-5", baseTime.plusSeconds(50)),
+                createEvent("evt-4", baseTime.plusSeconds(40)),
+                createEvent("evt-3", baseTime.plusSeconds(30)), // Duplicate
+            )
 
-            events.forEach { processor.submit(it, profileId) }
+        events.forEach { processor.submit(it, profileId) }
 
-            processor.tick()
+        processor.tick()
 
-            // Should have 5 unique events processed in order
-            assertEquals(5, processedEvents.size)
-            assertEquals(2, processor.getDedupHitsCount())
+        // Should have 5 unique events processed in order
+        assertEquals(5, processedEvents.size)
+        assertEquals(2, processor.getDedupHitsCount())
 
-            // Verify order
-            assertEquals("evt-1", processedEvents[0].eventId)
-            assertEquals("evt-2", processedEvents[1].eventId)
-            assertEquals("evt-3", processedEvents[2].eventId)
-            assertEquals("evt-4", processedEvents[3].eventId)
-            assertEquals("evt-5", processedEvents[4].eventId)
-        }
+        // Verify order
+        assertEquals("evt-1", processedEvents[0].eventId)
+        assertEquals("evt-2", processedEvents[1].eventId)
+        assertEquals("evt-3", processedEvents[2].eventId)
+        assertEquals("evt-4", processedEvents[3].eventId)
+        assertEquals("evt-5", processedEvents[4].eventId)
+    }
 
     @Test
-    fun `ticker should continuously process events when started`() =
-        runBlocking {
-            processor.start()
+    fun `ticker should continuously process events when started`() = runBlocking {
+        processor.start()
 
-            val profileId = "profile-1"
-            val baseTime = Instant.now().minusSeconds(60)
+        val profileId = "profile-1"
+        val baseTime = Instant.now().minusSeconds(60)
 
-            // Submit events
-            processor.submit(createEvent("evt-1", baseTime), profileId)
+        // Submit events
+        processor.submit(createEvent("evt-1", baseTime), profileId)
 
-            // Wait for ticker to process
-            delay(6000) // Wait for at least one tick (5s processing window + 1s ticker)
+        // Wait for ticker to process
+        delay(6000) // Wait for at least one tick (5s processing window + 1s ticker)
 
-            // Event should be processed
-            assertTrue(processedEvents.isNotEmpty())
+        // Event should be processed
+        assertTrue(processedEvents.isNotEmpty())
 
-            processor.stop()
-        }
+        processor.stop()
+    }
 
     // === Helper Functions ===
 

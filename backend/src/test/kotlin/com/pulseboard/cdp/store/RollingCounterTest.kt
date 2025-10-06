@@ -1,5 +1,6 @@
 package com.pulseboard.cdp.store
 
+import com.pulseboard.fixedClock
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,6 +18,7 @@ class RollingCounterTest {
             RollingCounter(
                 window = Duration.ofHours(24),
                 bucketSize = Duration.ofMinutes(1),
+                clock = fixedClock,
             )
     }
 
@@ -170,6 +172,7 @@ class RollingCounterTest {
             RollingCounter(
                 window = Duration.ofMinutes(5),
                 bucketSize = Duration.ofMinutes(1),
+                clock = fixedClock,
             )
 
         val now = Instant.now()
@@ -204,6 +207,7 @@ class RollingCounterTest {
             RollingCounter(
                 window = Duration.ofMinutes(10),
                 bucketSize = Duration.ofMinutes(1),
+                clock = fixedClock,
             )
 
         // Add events at different times
@@ -234,6 +238,7 @@ class RollingCounterTest {
             RollingCounter(
                 window = Duration.ofMinutes(10),
                 bucketSize = Duration.ofMinutes(1),
+                clock = fixedClock,
             )
 
         // Add old events for multiple profiles
@@ -342,6 +347,7 @@ class RollingCounterTest {
             RollingCounter(
                 window = Duration.ofMinutes(30),
                 bucketSize = Duration.ofMinutes(1),
+                clock = fixedClock,
             )
 
         val now = Instant.now()
