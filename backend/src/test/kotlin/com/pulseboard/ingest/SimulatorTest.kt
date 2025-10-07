@@ -1,8 +1,8 @@
 package com.pulseboard.ingest
 
-import com.pulseboard.cdp.api.CdpEventBus
 import com.pulseboard.core.Profile
-import com.pulseboard.transport.EventTransport
+import com.pulseboard.transport.CdpEventTransport
+import com.pulseboard.transport.EntityEventTransport
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -17,17 +17,17 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SimulatorTest {
-    private lateinit var mockEventTransport: EventTransport
-    private lateinit var mockCdpEventBus: CdpEventBus
+    private lateinit var mockEntityEventTransport: EntityEventTransport
+    private lateinit var mockCdpEventTransport: CdpEventTransport
     private lateinit var simulator: Simulator
 
     @BeforeEach
     fun setup() {
-        mockEventTransport = mockk()
-        mockCdpEventBus = mockk()
-        coEvery { mockEventTransport.publishEvent(any()) } returns Unit
-        coEvery { mockCdpEventBus.publish(any()) } returns Unit
-        simulator = Simulator(mockEventTransport, mockCdpEventBus)
+        mockEntityEventTransport = mockk()
+        mockCdpEventTransport = mockk()
+        coEvery { mockEntityEventTransport.publishEvent(any()) } returns Unit
+        coEvery { mockCdpEventTransport.publishEvent(any()) } returns Unit
+        simulator = Simulator(mockEntityEventTransport, mockCdpEventTransport)
     }
 
     @Test
@@ -80,7 +80,7 @@ class SimulatorTest {
             simulator.stop()
 
             // Verify that events were published
-            coVerify(atLeast = 1) { mockEventTransport.publishEvent(any()) }
+            coVerify(atLeast = 1) { mockEntityEventTransport.publishEvent(any()) }
         }
 
     @Test
@@ -94,7 +94,7 @@ class SimulatorTest {
             simulator.stop()
 
             // Verify that events were published
-            coVerify(atLeast = 1) { mockEventTransport.publishEvent(any()) }
+            coVerify(atLeast = 1) { mockEntityEventTransport.publishEvent(any()) }
         }
 
     @Test

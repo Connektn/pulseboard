@@ -1,7 +1,7 @@
 package com.pulseboard.transport
 
 import com.pulseboard.core.EntityEvent
-import com.pulseboard.ingest.EventBus
+import com.pulseboard.ingest.EntityEventBus
 import kotlinx.coroutines.flow.Flow
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component
  */
 @Component
 @ConditionalOnProperty(value = ["transport.mode"], havingValue = "memory", matchIfMissing = true)
-class MemoryEventTransport(
-    private val eventBus: EventBus,
-) : EventTransport {
+class MemoryEntityEventTransport(
+    private val eventBus: EntityEventBus,
+) : EntityEventTransport {
     override suspend fun publishEvent(event: EntityEvent) {
         eventBus.publishEvent(event)
     }

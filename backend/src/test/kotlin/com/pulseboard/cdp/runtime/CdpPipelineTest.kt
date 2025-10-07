@@ -1,6 +1,5 @@
 package com.pulseboard.cdp.runtime
 
-import com.pulseboard.cdp.api.CdpEventBus
 import com.pulseboard.cdp.identity.IdentityGraph
 import com.pulseboard.cdp.model.CdpEvent
 import com.pulseboard.cdp.model.CdpEventPayload
@@ -8,7 +7,9 @@ import com.pulseboard.cdp.model.CdpEventType
 import com.pulseboard.cdp.segments.SegmentEngine
 import com.pulseboard.cdp.store.ProfileStore
 import com.pulseboard.cdp.store.RollingCounter
+import com.pulseboard.core.StatsService
 import com.pulseboard.fixedClock
+import com.pulseboard.ingest.CdpEventBus
 import com.pulseboard.testMeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.delay
@@ -33,7 +34,10 @@ class CdpPipelineTest {
 
     @BeforeEach
     fun setup() {
-        eventBus = CdpEventBus()
+        eventBus =
+            CdpEventBus(
+                statsService = StatsService(),
+            )
         identityGraph = IdentityGraph()
         profileStore = ProfileStore()
         rollingCounter =
@@ -109,7 +113,7 @@ class CdpPipelineTest {
                 )
 
             // Publish event
-            eventBus.publish(event)
+            eventBus.publishEvent(event)
 
             // Wait for processing
             delay(500)
@@ -151,7 +155,7 @@ class CdpPipelineTest {
                         ),
                 )
 
-            eventBus.publish(identifyEvent)
+            eventBus.publishEvent(identifyEvent)
             delay(200)
 
             // Send 5 TRACK "Feature Used" events
@@ -171,7 +175,7 @@ class CdpPipelineTest {
                                 traits = emptyMap(),
                             ),
                     )
-                eventBus.publish(trackEvent)
+                eventBus.publishEvent(trackEvent)
                 delay(100)
             }
 
@@ -209,7 +213,7 @@ class CdpPipelineTest {
                         ),
                 )
 
-            eventBus.publish(identify1)
+            eventBus.publishEvent(identify1)
             delay(200)
             pipeline.getEventProcessor().tick()
             delay(200)
@@ -231,7 +235,7 @@ class CdpPipelineTest {
                         ),
                 )
 
-            eventBus.publish(aliasEvent)
+            eventBus.publishEvent(aliasEvent)
             delay(200)
             pipeline.getEventProcessor().tick()
             delay(200)
@@ -291,13 +295,13 @@ class CdpPipelineTest {
                 )
 
             // Publish newer event first
-            eventBus.publish(event1)
+            eventBus.publishEvent(event1)
             delay(200)
             pipeline.getEventProcessor().tick()
             delay(200)
 
             // Then publish older event
-            eventBus.publish(event2)
+            eventBus.publishEvent(event2)
             delay(200)
             pipeline.getEventProcessor().tick()
             delay(200)
@@ -333,7 +337,7 @@ class CdpPipelineTest {
                         ),
                 )
 
-            eventBus.publish(identifyEvent)
+            eventBus.publishEvent(identifyEvent)
             delay(100)
 
             // Send 3 TRACK events
@@ -353,7 +357,7 @@ class CdpPipelineTest {
                                 traits = emptyMap(),
                             ),
                     )
-                eventBus.publish(trackEvent)
+                eventBus.publishEvent(trackEvent)
                 delay(50)
             }
 
@@ -398,7 +402,7 @@ class CdpPipelineTest {
                         ),
                 )
 
-            eventBus.publish(event1)
+            eventBus.publishEvent(event1)
             delay(200)
             pipeline.getEventProcessor().tick()
             delay(500)
@@ -420,7 +424,7 @@ class CdpPipelineTest {
                         ),
                 )
 
-            eventBus.publish(event2)
+            eventBus.publishEvent(event2)
             delay(200)
             pipeline.getEventProcessor().tick()
             delay(500)

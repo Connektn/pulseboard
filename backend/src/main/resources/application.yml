@@ -17,15 +17,13 @@ spring:
         # Delegate to actual deserializers
         spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
-        # Tell JsonDeserializer what class to target when there are no type headers            
-        spring.json.value.default.type: "com.pulseboard.core.EntityEvent"
         spring.json.add.type.headers: false
-        spring.json.trusted.packages: "com.pulseboard.core"
+        spring.json.trusted.packages: "com.pulseboard.core,com.pulseboard.cdp.model"
       enable-auto-commit: false
     listener:
       ack-mode: manual
     topics:
-      events: "events"
+      entity-events: "entity-events"
       cdp-events: "cdp-events"
       alerts: "alerts"
 

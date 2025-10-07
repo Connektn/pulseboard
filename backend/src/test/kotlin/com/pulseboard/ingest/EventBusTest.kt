@@ -19,7 +19,7 @@ class EventBusTest {
 
     @Test
     fun `EventBus should have events and alerts SharedFlows`() {
-        val eventBus = EventBus(mockStatsService)
+        val eventBus = EntityEventBus(mockStatsService)
 
         assertNotNull(eventBus.events)
         assertNotNull(eventBus.alerts)
@@ -29,7 +29,7 @@ class EventBusTest {
 
     @Test
     fun `tryPublishEvent should return true when successful`() {
-        val eventBus = EventBus(mockStatsService)
+        val eventBus = EntityEventBus(mockStatsService)
         val testEvent =
             EntityEvent(
                 eventId = randomUUID().toString(),
@@ -48,7 +48,7 @@ class EventBusTest {
 
     @Test
     fun `tryPublishAlert should return true when successful`() {
-        val eventBus = EventBus(mockStatsService)
+        val eventBus = EntityEventBus(mockStatsService)
         val testAlert =
             Alert(
                 id = "alert-999",

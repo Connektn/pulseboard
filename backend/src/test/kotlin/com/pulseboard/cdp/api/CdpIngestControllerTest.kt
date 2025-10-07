@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.pulseboard.cdp.model.CdpEvent
 import com.pulseboard.cdp.model.CdpEventPayload
 import com.pulseboard.cdp.model.CdpEventType
+import com.pulseboard.ingest.CdpEventBus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -28,7 +29,7 @@ class CdpIngestControllerTest {
         webTestClient = WebTestClient.bindToController(controller).build()
 
         // Default behavior: allow event publishing
-        coEvery { mockEventBus.publish(any()) } returns Unit
+        coEvery { mockEventBus.publishEvent(any()) } returns Unit
     }
 
     @Test
@@ -61,7 +62,7 @@ class CdpIngestControllerTest {
             .jsonPath("$.eventId")
             .isEqualTo("evt-123")
 
-        coVerify { mockEventBus.publish(any()) }
+        coVerify { mockEventBus.publishEvent(any()) }
     }
 
     @Test
@@ -90,7 +91,7 @@ class CdpIngestControllerTest {
             .jsonPath("$.status")
             .isEqualTo("accepted")
 
-        coVerify { mockEventBus.publish(any()) }
+        coVerify { mockEventBus.publishEvent(any()) }
     }
 
     @Test
@@ -120,7 +121,7 @@ class CdpIngestControllerTest {
             .jsonPath("$.status")
             .isEqualTo("accepted")
 
-        coVerify { mockEventBus.publish(any()) }
+        coVerify { mockEventBus.publishEvent(any()) }
     }
 
     @Test
@@ -151,7 +152,7 @@ class CdpIngestControllerTest {
             .jsonPath("$.message")
             .value<String> { it.contains("TRACK events require a name") }
 
-        coVerify(exactly = 0) { mockEventBus.publish(any()) }
+        coVerify(exactly = 0) { mockEventBus.publishEvent(any()) }
     }
 
     @Test
@@ -181,7 +182,7 @@ class CdpIngestControllerTest {
             .jsonPath("$.message")
             .value<String> { it.contains("At least one of") }
 
-        coVerify(exactly = 0) { mockEventBus.publish(any()) }
+        coVerify(exactly = 0) { mockEventBus.publishEvent(any()) }
     }
 
     @Test
@@ -212,7 +213,7 @@ class CdpIngestControllerTest {
             .jsonPath("$.message")
             .value<String> { it.contains("eventId is required") }
 
-        coVerify(exactly = 0) { mockEventBus.publish(any()) }
+        coVerify(exactly = 0) { mockEventBus.publishEvent(any()) }
     }
 
     @Test
@@ -228,7 +229,7 @@ class CdpIngestControllerTest {
             .expectStatus()
             .is4xxClientError
 
-        coVerify(exactly = 0) { mockEventBus.publish(any()) }
+        coVerify(exactly = 0) { mockEventBus.publishEvent(any()) }
     }
 
     @Test
@@ -246,7 +247,7 @@ class CdpIngestControllerTest {
                         ),
                 )
 
-            coEvery { mockEventBus.publish(event) } returns Unit
+            coEvery { mockEventBus.publishEvent(event) } returns Unit
 
             val eventJson = objectMapper.writeValueAsString(event)
 
@@ -259,6 +260,6 @@ class CdpIngestControllerTest {
                 .expectStatus()
                 .isAccepted
 
-            coVerify { mockEventBus.publish(any()) }
+            coVerify { mockEventBus.publishEvent(any()) }
         }
 }

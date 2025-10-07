@@ -25,6 +25,10 @@ class CdpEvent(
     ts: Instant,
     payload: CdpEventPayload,
 ) : BaseEvent<CdpEventPayload>(eventId, ts, payload) {
+    fun key(): String {
+        return payload.userId ?: payload.anonymousId ?: eventId
+    }
+
     /**
      * Validates the event according to CDP requirements.
      * Should be called explicitly after deserialization.

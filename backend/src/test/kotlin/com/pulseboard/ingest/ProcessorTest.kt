@@ -3,7 +3,7 @@ package com.pulseboard.ingest
 import com.pulseboard.core.EntityEvent
 import com.pulseboard.core.Rules
 import com.pulseboard.core.WindowStore
-import com.pulseboard.transport.EventTransport
+import com.pulseboard.transport.EntityEventTransport
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -17,8 +17,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ProcessorTest {
-    private lateinit var mockEventTransport: EventTransport
-    private lateinit var mockEventBus: EventBus
+    private lateinit var mockEventTransport: EntityEventTransport
+    private lateinit var mockEventBus: EntityEventBus
     private lateinit var mockWindowStore: WindowStore
     private lateinit var mockRules: Rules
     private lateinit var processor: Processor

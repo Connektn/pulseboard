@@ -2,7 +2,7 @@ package com.pulseboard.api
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.pulseboard.core.Alert
-import com.pulseboard.ingest.EventBus
+import com.pulseboard.ingest.EntityEventBus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
@@ -20,7 +20,7 @@ import java.time.Instant
 
 @RestController
 class AlertController(
-    @Autowired private val eventBus: EventBus,
+    @Autowired private val eventBus: EntityEventBus,
     @Autowired private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(AlertController::class.java)

@@ -2,7 +2,7 @@ package com.pulseboard.api
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.pulseboard.core.Alert
-import com.pulseboard.ingest.EventBus
+import com.pulseboard.ingest.EntityEventBus
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -13,7 +13,7 @@ import reactor.test.StepVerifier
 import java.time.Duration
 
 class AlertControllerTest {
-    private lateinit var mockEventBus: EventBus
+    private lateinit var mockEventBus: EntityEventBus
     private lateinit var objectMapper: ObjectMapper
     private lateinit var alertController: AlertController
     private lateinit var webTestClient: WebTestClient

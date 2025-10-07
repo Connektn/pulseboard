@@ -1,7 +1,7 @@
 package com.pulseboard.transport
 
 import com.pulseboard.core.EntityEvent
-import com.pulseboard.ingest.EventBus
+import com.pulseboard.ingest.EntityEventBus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,23 +18,23 @@ import org.springframework.stereotype.Component
 
 /**
  * Kafka-based event transport implementation.
- * Publishes events to Kafka topic and consumes them for processing.
+ * Publishes events to the Kafka topic and consumes them for processing.
  */
 @Component
 @ConditionalOnProperty(value = ["transport.mode"], havingValue = "kafka")
-class KafkaEventTransport(
-    private val kafkaTemplate: KafkaTemplate<String, EntityEvent>,
-    private val eventBus: EventBus,
-    @Value("\${spring.kafka.topics.events}") private val eventsTopic: String,
-) : EventTransport {
-    private val logger = LoggerFactory.getLogger(KafkaEventTransport::class.java)
+class KafkaEntityEventTransport(
+    private val entityEventKafkaTemplate: KafkaTemplate<String, EntityEvent>,
+    private val eventBus: EntityEventBus,
+    @Value("\${spring.kafka.topics.entity-events}") private val eventsTopic: String,
+) : EntityEventTransport {
+    private val logger = LoggerFactory.getLogger(KafkaEntityEventTransport::class.java)
 
     private val jobScope: CoroutineScope
         get() = CoroutineScope(Job() + Dispatchers.IO)
 
     override suspend fun publishEvent(event: EntityEvent) {
         try {
-            kafkaTemplate.send(eventsTopic, event.payload.entityId, event)
+            entityEventKafkaTemplate.send(eventsTopic, event.payload.entityId, event)
                 .whenComplete { result, exception ->
                     if (exception != null) {
                         logger.error("Failed to send event to Kafka", exception)
@@ -58,8 +58,9 @@ class KafkaEventTransport(
     }
 
     @KafkaListener(
-        topics = ["\${spring.kafka.topics.events}"],
+        topics = ["\${spring.kafka.topics.entity-events}"],
         groupId = "\${spring.kafka.consumer.group-id}",
+        containerFactory = "entityEventKafkaListenerContainerFactory",
     )
     fun consumeEvent(
         record: ConsumerRecord<String, EntityEvent>,

@@ -1,6 +1,5 @@
 package com.pulseboard.cdp.runtime
 
-import com.pulseboard.cdp.api.CdpEventBus
 import com.pulseboard.cdp.identity.IdentityGraph
 import com.pulseboard.cdp.model.CdpEvent
 import com.pulseboard.cdp.model.CdpEventType
@@ -8,6 +7,7 @@ import com.pulseboard.cdp.model.ProfileIdentifiers
 import com.pulseboard.cdp.segments.SegmentEngine
 import com.pulseboard.cdp.store.ProfileStore
 import com.pulseboard.cdp.store.RollingCounter
+import com.pulseboard.ingest.CdpEventBus
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope

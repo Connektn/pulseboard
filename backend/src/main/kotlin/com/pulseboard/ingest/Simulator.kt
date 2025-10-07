@@ -1,13 +1,13 @@
 package com.pulseboard.ingest
 
-import com.pulseboard.cdp.api.CdpEventBus
 import com.pulseboard.cdp.model.CdpEvent
 import com.pulseboard.cdp.model.CdpEventPayload
 import com.pulseboard.cdp.model.CdpEventType
 import com.pulseboard.core.EntityEvent
 import com.pulseboard.core.EntityPayload
 import com.pulseboard.core.Profile
-import com.pulseboard.transport.EventTransport
+import com.pulseboard.transport.CdpEventTransport
+import com.pulseboard.transport.EntityEventTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -20,8 +20,8 @@ import kotlin.random.Random
 
 @Component
 class Simulator(
-    @Autowired private val eventTransport: EventTransport,
-    @Autowired private val cdpEventBus: CdpEventBus,
+    @Autowired private val entityEventTransport: EntityEventTransport,
+    @Autowired private val cdpEventTransport: CdpEventTransport,
 ) {
     private var simulatorJob: Job? = null
     private var currentProfile: Profile = Profile.SASE
@@ -181,7 +181,7 @@ class Simulator(
                 else -> return
             }
 
-        eventTransport.publishEvent(event)
+        entityEventTransport.publishEvent(event)
     }
 
     private suspend fun generateIGamingEvents() {
@@ -258,7 +258,7 @@ class Simulator(
                 else -> return
             }
 
-        eventTransport.publishEvent(event)
+        entityEventTransport.publishEvent(event)
     }
 
     private fun chooseSaseEventType(): String {
@@ -315,7 +315,7 @@ class Simulator(
                             ),
                     ),
             )
-        cdpEventBus.publish(event)
+        cdpEventTransport.publishEvent(event)
     }
 
     private suspend fun generateCdpTrack() {
@@ -335,7 +335,7 @@ class Simulator(
                         traits = emptyMap(),
                     ),
             )
-        cdpEventBus.publish(event)
+        cdpEventTransport.publishEvent(event)
     }
 
     private suspend fun generateCdpAlias() {
@@ -372,7 +372,7 @@ class Simulator(
                         traits = emptyMap(),
                     ),
             )
-        cdpEventBus.publish(event)
+        cdpEventTransport.publishEvent(event)
     }
 
     private fun chooseCdpEventType(): String {
