@@ -123,6 +123,49 @@ fun updateProfile(event: CdpEvent) {
 - May discard valid concurrent updates
 - No causal ordering guarantees
 
+#### Example: Preventing Stale Updates
+
+LWW protects against stale updates even when events arrive hours late.
+
+**Scenario:**
+```
+t=10:00:00  Event A: IDENTIFY {userId: "u123", traits: {plan: "free", email: "old@example.com"}}
+            → Gets stuck in a retry queue due to network failure
+
+t=11:00:00  Event B: IDENTIFY {userId: "u123", traits: {plan: "pro", email: "new@example.com"}}
+            → Arrives and processes successfully
+
+t=14:00:00  Event A finally arrives (4 hours late!)
+```
+
+**Processing:**
+```kotlin
+// At t=11:00:00 - Process Event B
+profile.traits = {
+  plan: {value: "pro", lastUpdated: 11:00:00},
+  email: {value: "new@example.com", lastUpdated: 11:00:00}
+}
+
+// At t=14:00:00 - Process Event A (4 hours late)
+// Event A has ts=10:00:00, which is OLDER than 11:00:00
+// LWW compares timestamps:
+//   Event A: 10:00:00 < 11:00:00 (current)
+//   → Event A is rejected ✓
+
+profile.traits remains = {
+  plan: {value: "pro", lastUpdated: 11:00:00},  // ✓ Not overwritten
+  email: {value: "new@example.com", lastUpdated: 11:00:00}  // ✓ Not overwritten
+}
+```
+
+**Key Point:** LWW protects against stale updates by comparing the **event's actual timestamp** (when it happened), not when it arrived at the server.
+
+**What Gets LWW Protection:**
+
+✅ **Traits** - Each trait has individual timestamp tracking
+✅ **lastSeen** - Only newer timestamps update it
+⚠️ **Identifiers** - Use set union (grow-only) - all known identifiers are retained for matching
+
 ### 4. Dual Watermark Event Processing
 
 The CDP uses a two-tier watermark system for handling events with different lateness characteristics:
@@ -182,6 +225,78 @@ class CdpEventProcessor(
 - Handles reasonable late arrivals (up to 2 minutes)
 - Prevents unbounded buffering with hard cutoff
 - Metrics distinguish between late and dropped events
+
+#### How Windowing Helps with Late Events
+
+Even with LWW semantics, windowing reduces segment recalculations and prevents flickering ENTER/EXIT events.
+
+**Scenario: User Signs Up and Immediately Uses Feature**
+
+**Timeline of actual events:**
+```
+t=10:00:00  Event A: IDENTIFY {userId: "u123", traits: {plan: "free"}}
+t=10:00:05  Event B: TRACK {userId: "u123", name: "Feature Used"}
+t=10:00:10  Event C: TRACK {userId: "u123", name: "Feature Used"}
+t=10:00:15  Event D: IDENTIFY {userId: "u123", traits: {plan: "pro"}}
+```
+
+**What arrives at the server (network delays):**
+```
+t=10:00:01  Event A arrives (1s delay)
+t=10:00:20  Event D arrives (5s delay)
+t=10:00:25  Event B arrives (20s late!) - mobile was offline
+t=10:00:26  Event C arrives (16s late!)
+```
+
+**Without Windowing (Process Immediately):**
+
+```kotlin
+// At t=10:00:01 - Process Event A
+profile.traits = {plan: "free"}
+
+// At t=10:00:20 - Process Event D
+profile.traits = {plan: "pro"}  // LWW: 10:00:15 > 10:00:00 ✓
+// Segment engine evaluates: counter=0, no "power_user" segment
+
+// At t=10:00:25 - Process Event B (LATE!)
+// Problem: We already computed segments, now need to recompute
+rollingCounter.increment("u123", "Feature Used", ts=10:00:05)
+// Need to retroactively update segments!
+
+// At t=10:00:26 - Process Event C (LATE!)
+rollingCounter.increment("u123", "Feature Used", ts=10:00:10)
+// Another retroactive segment update needed!
+```
+
+**Problem:** Each late event triggers segment recomputation, potentially emitting conflicting ENTER/EXIT events.
+
+**With Windowing (Current Implementation):**
+
+**Processing window = 5s, Current time = 10:00:30**
+
+```kotlin
+// Watermark = 10:00:30 - 5s = 10:00:25
+// "Don't process events newer than 10:00:25 yet, wait for stragglers"
+
+Buffer state at tick():
+- Event A (ts=10:00:00): age=30s, watermark=10:00:25 → READY
+- Event D (ts=10:00:15): age=15s, watermark=10:00:25 → READY
+- Event B (ts=10:00:05): age=25s, watermark=10:00:25 → READY
+- Event C (ts=10:00:10): age=20s, watermark=10:00:25 → READY
+
+Processing order (sorted by timestamp):
+1. Event A (10:00:00) → profile created
+2. Event B (10:00:05) → counter: 1
+3. Event C (10:00:10) → counter: 2
+4. Event D (10:00:15) → traits updated, counter: 2
+
+Segment evaluation happens ONCE with complete data:
+✓ All events from [10:00:00-10:00:15] are present
+✓ Counter shows 2 "Feature Used" events
+✓ Segment engine makes correct decision on complete window
+```
+
+**Benefit:** Late events B and C don't cause problems because they're buffered, sorted, and processed together
 
 ### 5. Windowed Aggregations
 
