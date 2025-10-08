@@ -75,6 +75,56 @@ data class ProfileIdentifiers(
 )
 ```
 
+#### How Profile Merging Works
+
+Profile unification happens **at the identity graph level**, not at the profile store level. The `IdentityGraph` (using union-find algorithm) determines which identifiers belong together and resolves them to a single canonical profile ID.
+
+**Key Behavior:**
+1. **Identity resolution happens first**: When an event arrives, `IdentityGraph.canonicalIdFor()` determines the canonical profile ID for all identifiers in the event
+2. **Profile data is stored by canonical ID**: All event data (traits, counters, segments) is merged into the profile with the canonical ID
+3. **Historical data stays where it is**: When two previously separate profiles are discovered to be the same person, their historical data is NOT automatically migrated
+
+**Example Scenario:**
+
+```
+Event 1: IDENTIFY {userId: "A"}
+  → Creates Profile 1 (canonical ID = "user:A")
+  → traits: {plan: "free"}
+
+Event 2: IDENTIFY {userId: "B"}
+  → Creates Profile 2 (canonical ID = "user:B")
+  → traits: {country: "US"}
+
+Event 3: IDENTIFY {userId: "A", email: "user@example.com"}
+  → Identity graph unions "user:A" and "email:user@example.com"
+  → Canonical ID = "user:A" (lexicographically smaller)
+  → Data merged into Profile 1
+  → traits: {plan: "free", country: "DE"}
+
+Event 4: IDENTIFY {userId: "B", email: "user@example.com"}
+  → Identity graph unions "user:B" and "email:user@example.com"
+  → Since "email:user@example.com" is already linked to "user:A",
+     this unions "user:B" with the existing group
+  → Canonical ID = "user:A" (root of the union-find tree)
+  → Data merged into Profile 1
+  → traits: {plan: "free", country: "DE"} (from Event 3)
+
+Profile 2 remains in storage with traits: {country: "US"}
+  → But all future events with "B" will route to Profile 1
+```
+
+**What This Means:**
+- ✅ Future events with any linked identifier route to the canonical profile
+- ✅ New data gets merged correctly using LWW semantics
+- ⚠️ Historical profile data from Profile 2 is NOT merged into Profile 1
+- ⚠️ Profile 2 becomes "orphaned" but remains in storage
+
+**Rationale:**
+- Avoids complex conflict resolution when merging historical data
+- Simpler implementation for MVP
+- Future events capture the complete picture over time
+- For production systems, a background job could periodically merge orphaned profiles
+
 ### 2. Event-Time Processing
 
 The CDP uses **event time** (when the event actually occurred) rather than **processing time** (when the system processes it):
